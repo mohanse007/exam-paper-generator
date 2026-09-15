@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam Paper Generator - 2-Up A4 & Full A4</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- KaTeX for Math Equation Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+  <!-- html2canvas for 300 DPI High-Resolution Image Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top App Navigation Bar -->
+  <header class="app-header">
+    <div class="brand-title">
+      <h1>Exam Paper Generator</h1>
+      <!-- Mode Selector: 2-Up Duplicate vs Full A4 -->
+      <div class="mode-selector-wrap">
+        <button class="mode-btn active" id="btn-mode-2up" onclick="setLayoutMode('2up')" title="Two identical copies side-by-side on A4 Landscape (Half-cut)">
+          📑 2-Up Duplicate
+        </button>
+        <button class="mode-btn" id="btn-mode-full-a4" onclick="setLayoutMode('full-a4')" title="Single full-page question paper on A4 Portrait">
+          📄 Full A4 Size
+        </button>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Pre-set Templates -->
+      <span style="font-size:11.5px; color:#94a3b8; margin-right:2px;">Presets:</span>
+      <button class="btn btn-secondary" onclick="loadTemplate('commerce')">Commerce</button>
+      <button class="btn btn-secondary" onclick="loadTemplate('telugu')">Telugu</button>
+      <button class="btn btn-secondary" onclick="loadTemplate('math')">Math</button>
+      <button class="btn btn-secondary" onclick="loadTemplate('blank')">Blank</button>
+
+      <span style="border-left:1px solid #475569; height:18px; margin:0 3px;"></span>
+
+      <!-- Draft Save/Load -->
+      <button class="btn btn-secondary" onclick="saveDraft()" title="Save paper as JSON">💾 Save</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('draft-file-input').click()" title="Load paper from JSON">📂 Load</button>
+      <input type="file" id="draft-file-input" style="display:none" accept=".json" onchange="loadDraft(event)">
+
+      <span style="border-left:1px solid #475569; height:18px; margin:0 3px;"></span>
+
+      <!-- Exports -->
+      <button class="btn btn-amber" id="btn-exp-p1" onclick="exportPageAsJpg('preview-page-1', 'Page_1.jpg')">📷 Export P1 (300 DPI)</button>
+      <button class="btn btn-amber" id="btn-exp-p2" onclick="exportPageAsJpg('preview-page-2', 'Page_2.jpg')">📷 Export P2 (300 DPI)</button>
+      <button class="btn btn-success" onclick="printExamPaper()">🖨️ Print / PDF</button>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="main-container">
+    
+    <!-- Left Sidebar: Manual Entry Editor -->
+    <aside class="sidebar">
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" data-tab="tab-header">1. Header</button>
+        <button class="tab-btn" data-tab="tab-sec-a">2. Sec A (Q1-8)</button>
+        <button class="tab-btn" data-tab="tab-sec-b">3. Sec B (Q9-13)</button>
+        <button class="tab-btn" data-tab="tab-tools">4. Helpers</button>
+      </div>
+
+      <div class="sidebar-content">
+        <!-- TAB 1: Header Section -->
+        <div id="tab-header" class="tab-pane" style="display:block;">
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label>Paper Code (Top Center):</label>
+              <input type="text" id="inp-paper-code" placeholder="e.g. [BC-S452]">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Institution Name (Line 1):</label>
+            <input type="text" id="inp-college-name">
+          </div>
+
+          <div class="form-group">
+            <label>Institution Address (Line 2):</label>
+            <input type="text" id="inp-college-addr">
+          </div>
+
+          <div class="form-group">
+            <label>Exam Details (Line 3 - Semester & Batch):</label>
+            <textarea id="inp-exam-details" rows="2" placeholder="Honors - Degree Examinations - IV-Semester (Admitted Batch : 2024-2025)"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Subject Title (Line 4):</label>
+            <input type="text" id="inp-subject-title" placeholder="e.g. COURSE 10: COST AND MANAGEMENT ACCOUNTING">
+          </div>
+
+          <div class="form-group">
+            <label>Stream / Degree Details (Line 5):</label>
+            <input type="text" id="inp-stream-details" placeholder="e.g. B.Com - MAJOR - II">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Time Allowed:</label>
+              <input type="text" id="inp-time-str" value="Time:3Hrs">
+            </div>
+            <div class="form-group">
+              <label>Maximum Marks:</label>
+              <input type="text" id="inp-max-marks" value="Max Marks:60">
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Section A -->
+        <div id="tab-sec-a" class="tab-pane" style="display:none;">
+          <div class="form-group">
+            <label>Section Title:</label>
+            <input type="text" id="inp-sec-a-title" value="SECTION - A">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex:2;">
+              <label>Instructions:</label>
+              <input type="text" id="inp-sec-a-inst" value="I. Answer any Five questions.">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label>Marks Rule:</label>
+              <input type="text" id="inp-sec-a-marks" value="5x4=20">
+            </div>
+          </div>
+
+          <hr style="margin:10px 0; border:none; border-top:1px solid #e2e8f0;">
+          <h4 style="font-size:12px; margin-bottom:8px; color:#475569;">8 Short Questions:</h4>
+          <div id="sec-a-questions"></div>
+        </div>
+
+        <!-- TAB 3: Section B (All Questions Q9-13 with Dynamic Page Distribution) -->
+        <div id="tab-sec-b" class="tab-pane" style="display:none;">
+          <div class="form-group">
+            <label>Section Title:</label>
+            <input type="text" id="inp-sec-b-title" value="SECTION - B">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex:2;">
+              <label>Instructions:</label>
+              <input type="text" id="inp-sec-b-inst" value="II. Answer ALL the following questions.">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label>Marks Rule:</label>
+              <input type="text" id="inp-sec-b-marks" value="5x8=40">
+            </div>
+          </div>
+
+          <hr style="margin:10px 0; border:none; border-top:1px solid #e2e8f0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h4 style="font-size:12px; color:#475569;">5 Compulsory Choice Questions:</h4>
+            <span style="font-size:11px; color:#64748b;">(Distribution adjusts automatically)</span>
+          </div>
+          <div id="sec-b-all-questions"></div>
+        </div>
+
+        <!-- TAB 4: Helpers & Formatting -->
+        <div id="tab-tools" class="tab-pane" style="display:none;">
+          <div class="helper-box">
+            <h4>Quick Math Insert</h4>
+            <p style="margin-bottom:8px; color:#334155;">Click inside any question box, then click a button to insert:</p>
+            <div>
+              <span class="chip-btn" onclick="insertSnippet('$\\lim_{n\\to\\infty} $')">lim n→∞</span>
+              <span class="chip-btn" onclick="insertSnippet('$\\sum_{k=0}^{n} $')">sum (∑)</span>
+              <span class="chip-btn" onclick="insertSnippet('$\\sqrt{x}$')">√x</span>
+              <span class="chip-btn" onclick="insertSnippet('$\\frac{a}{b}$')">fraction a/b</span>
+              <span class="chip-btn" onclick="insertSnippet('$\\int_0^\\pi $')">integral ∫</span>
+              <span class="chip-btn" onclick="insertSnippet('$\\pi$')">π</span>
+              <span class="chip-btn" onclick="insertSnippet('$\\forall x > 0$')">∀x>0</span>
+              <span class="chip-btn" onclick="insertSnippet('$$\\begin{cases} x & \\text{if } x > 0 \\\\ 0 & \\text{if } x = 0 \\end{cases}$$')">Piecewise</span>
+            </div>
+          </div>
+
+          <div class="helper-box">
+            <h4>Insert Accounting / Statement Table</h4>
+            <p style="margin-bottom:8px; color:#334155;">Inserts a clean formatted table into question:</p>
+            <button class="btn btn-primary" style="font-size:11px; padding:4px 10px;" onclick="insertTableTemplate()">+ Insert Sample Table</button>
+          </div>
+
+          <div class="helper-box">
+            <h4>Telugu Common Words & Symbols</h4>
+            <p style="margin-bottom:8px; color:#334155;">Insert into choice word or question:</p>
+            <div>
+              <span class="chip-btn" onclick="insertSnippet('(లేదా)')">(లేదా)</span>
+              <span class="chip-btn" onclick="insertSnippet('అ) ')">అ)</span>
+              <span class="chip-btn" onclick="insertSnippet('ఆ) ')">ఆ)</span>
+              <span class="chip-btn" onclick="insertSnippet('(or)')">(or)</span>
+              <span class="chip-btn" onclick="insertSnippet('Or')">Or</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right Area: Live Preview Pane -->
+    <main class="preview-pane">
+      <div class="preview-toolbar">
+        <!-- Display selector -->
+        <div class="preview-controls">
+          <div class="page-selector">
+            <button class="page-btn active" id="btn-show-both">Both</button>
+            <button class="page-btn" id="btn-show-p1">P1</button>
+            <button class="page-btn" id="btn-show-p2">P2</button>
+          </div>
+
+          <span style="border-left:1px solid #475569; height:14px;"></span>
+
+          <!-- Dynamic Flow & Page Break Selector -->
+          <span style="font-size:11.5px; font-weight:600; color:#38bdf8;">Distribution:</span>
+          <select id="sel-page-flow" style="background:#334155; color:#fff; border:1px solid #475569; border-radius:3px; padding:2px 5px; font-size:11.5px;">
+            <option value="auto" selected>Auto Fill Page 1 (No Gaps)</option>
+            <option value="balance">Balance Across 2 Pages</option>
+            <option value="9">Break at Q9</option>
+            <option value="10">Break at Q10</option>
+            <option value="11">Break at Q11</option>
+            <option value="12">Break at Q12</option>
+          </select>
+
+          <!-- Spread Spacing Checkbox -->
+          <label style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:#e2e8f0; cursor:pointer;">
+            <input type="checkbox" id="chk-spread-space" checked> Distribute Spacing
+          </label>
+
+          <!-- Auto-Fit Button -->
+          <button class="btn btn-purple" style="font-size:11px; padding:3px 8px;" onclick="autoFitToTwoPages()" title="Automatically adjust font size and spacing so content fits cleanly">
+            ⚡ Auto-Fit
+          </button>
+
+          <!-- Status badges -->
+          <span class="badge-status badge-ok" id="page1-status-badge">P1: OK</span>
+          <span class="badge-status badge-ok" id="page2-status-badge">P2: OK</span>
+        </div>
+
+        <div class="preview-controls">
+          <!-- Cut line toggle (shown in 2-Up mode) -->
+          <label id="wrap-cut-line" style="display:flex; align-items:center; gap:4px; font-size:11.5px; cursor:pointer;">
+            <input type="checkbox" id="chk-cut-line"> Cut Line
+          </label>
+
+          <span style="border-left:1px solid #475569; height:14px;"></span>
+
+          <!-- Font Size Selector -->
+          <span style="font-size:11.5px;">Font:</span>
+          <select id="sel-font-size" style="background:#334155; color:#fff; border:1px solid #475569; border-radius:3px; padding:2px 4px; font-size:11.5px;">
+            <option value="8pt">8.0pt</option>
+            <option value="8.5pt">8.5pt</option>
+            <option value="9pt" selected>9.0pt</option>
+            <option value="9.5pt">9.5pt</option>
+            <option value="10pt">10.0pt</option>
+            <option value="10.5pt">10.5pt</option>
+          </select>
+
+          <!-- Spacing Selector -->
+          <span style="font-size:11.5px;">Gap:</span>
+          <select id="sel-question-gap" style="background:#334155; color:#fff; border:1px solid #475569; border-radius:3px; padding:2px 4px; font-size:11.5px;">
+            <option value="1px">Tight (1px)</option>
+            <option value="2px" selected>Normal (2px)</option>
+            <option value="3px">Relaxed (3px)</option>
+            <option value="4px">Wide (4px)</option>
+          </select>
+
+          <span style="border-left:1px solid #475569; height:14px;"></span>
+
+          <!-- Zoom Slider -->
+          <div class="zoom-slider">
+            <input type="range" id="zoom-range" min="40" max="130" value="85" step="5" style="width:70px;">
+            <span id="zoom-value">85%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-scroll">
+        <!-- Page 1 -->
+        <div class="exam-page mode-2up" id="preview-page-1" style="transform: scale(0.85); margin-bottom: -31.5mm;"></div>
+
+        <!-- Page 2 -->
+        <div class="exam-page mode-2up" id="preview-page-2" style="transform: scale(0.85); margin-bottom: -31.5mm;"></div>
+      </div>
+    </main>
+
+  </div>
+
+  <script src="templates.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
