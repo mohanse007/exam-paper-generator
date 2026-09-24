@@ -18,6 +18,9 @@
   <!-- html2canvas for 300 DPI High-Resolution Image Export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
+  <!-- mammoth.js for Client-Side Word (.docx) Document Parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -51,6 +54,13 @@
       <button class="btn btn-secondary" onclick="saveDraft()" title="Save paper as JSON">💾 Save</button>
       <button class="btn btn-secondary" onclick="document.getElementById('draft-file-input').click()" title="Load paper from JSON">📂 Load</button>
       <input type="file" id="draft-file-input" style="display:none" accept=".json" onchange="loadDraft(event)">
+
+      <span style="border-left:1px solid #475569; height:18px; margin:0 3px;"></span>
+
+      <!-- Auto Import Paper (Word .docx / Text) -->
+      <button class="btn btn-primary" onclick="openImportModal()" title="Upload Word document (.docx) or Text to auto-fill questions and tables">
+        📤 Import Paper
+      </button>
 
       <span style="border-left:1px solid #475569; height:18px; margin:0 3px;"></span>
 
@@ -293,6 +303,134 @@
       </div>
     </main>
 
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 1: VISUAL TABLE BUILDER & EXCEL IMPORTER -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="table-builder-modal" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">📊</span>
+          <h3 style="font-size:15px; font-weight:700; color:#0f172a;">Visual Table Builder (No Code Needed)</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeTableModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size:12px; color:#475569; margin-bottom:12px;">
+          Build your table by filling the cells below, or <strong>paste directly from Excel / Google Sheets</strong> with <code>Ctrl+V</code>.
+        </p>
+
+        <!-- Controls: Dimensions and Style -->
+        <div style="display:flex; gap:12px; align-items:center; background:#f1f5f9; padding:8px 12px; border-radius:6px; margin-bottom:12px;">
+          <label style="font-size:12px; font-weight:600; color:#334155;">Rows:
+            <input type="number" id="tbl-rows" min="1" max="25" value="4" style="width:50px; padding:3px 5px; margin-left:4px;" onchange="resizeTableGrid()">
+          </label>
+          <label style="font-size:12px; font-weight:600; color:#334155;">Columns:
+            <input type="number" id="tbl-cols" min="1" max="10" value="3" style="width:50px; padding:3px 5px; margin-left:4px;" onchange="resizeTableGrid()">
+          </label>
+          <label style="font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; gap:4px; margin-left:auto;">
+            <input type="checkbox" id="tbl-bordered" checked> Black Border (Accounting / Statement)
+          </label>
+          <label style="font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; gap:4px;">
+            <input type="checkbox" id="tbl-has-header" checked> First Row is Header (Bold)
+          </label>
+        </div>
+
+        <!-- Action bar for adding/removing rows and columns -->
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <button class="btn btn-secondary" style="font-size:11px; padding:3px 8px;" onclick="addTableRow()">+ Add Row</button>
+          <button class="btn btn-secondary" style="font-size:11px; padding:3px 8px;" onclick="removeTableRow()">- Remove Row</button>
+          <button class="btn btn-secondary" style="font-size:11px; padding:3px 8px;" onclick="addTableCol()">+ Add Column</button>
+          <button class="btn btn-secondary" style="font-size:11px; padding:3px 8px;" onclick="removeTableCol()">- Remove Column</button>
+          <button class="btn btn-secondary" style="font-size:11px; padding:3px 8px; margin-left:auto;" onclick="clearTableCells()">Clear All</button>
+        </div>
+
+        <!-- Excel / Word Paste Box -->
+        <div style="margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+            <span style="font-size:11.5px; font-weight:600; color:#334155;">Paste directly from Excel / Word (Optional):</span>
+            <span style="font-size:10.5px; color:#64748b;">(Click box, press Ctrl+V, then click Parse)</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="tbl-paste-input" placeholder="Click here and press Ctrl+V to paste cells copied from Excel/Word..." style="flex:1; padding:5px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:4px;">
+            <button class="btn btn-primary" style="font-size:11px; padding:5px 10px;" onclick="parsePastedExcelData()">Parse Paste</button>
+          </div>
+        </div>
+
+        <!-- Interactive Grid Editor -->
+        <div class="table-grid-scroll" id="table-grid-wrapper">
+          <table class="builder-interactive-grid" id="builder-grid"></table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeTableModal()">Cancel</button>
+        <button class="btn btn-success" style="font-size:13px; padding:6px 14px;" onclick="insertTableFromModal()">
+          ✓ Insert Table into Question
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 2: DOCUMENT & TEXT AUTO-IMPORTER         -->
+  <!-- ============================================== -->
+  <div class="modal-backdrop" id="import-modal" style="display:none;">
+    <div class="modal-card" style="max-width:680px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">📤</span>
+          <h3 style="font-size:15px; font-weight:700; color:#0f172a;">Import Question Paper (.docx / Text)</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeImportModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size:12px; color:#475569; margin-bottom:12px;">
+          Upload a standard Microsoft Word document (<code>.docx</code>) or paste raw text. The tool will automatically detect the header, Section A questions, Section B choice questions, and <strong>Word tables</strong>!
+        </p>
+
+        <!-- Drag & Drop / File Select Box -->
+        <div class="import-drop-zone" id="import-drop-zone" onclick="document.getElementById('docx-file-input').click()">
+          <span style="font-size:32px;">📄</span>
+          <div style="font-weight:600; font-size:13px; color:#0f172a; margin-top:4px;">
+            Click to upload Word (.docx) file, or drag and drop here
+          </div>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">
+            Extracts all questions, marks, and accounting/math tables automatically
+          </div>
+          <input type="file" id="docx-file-input" accept=".docx,.txt" style="display:none;" onchange="handleDocxUpload(event)">
+        </div>
+
+        <div style="text-align:center; font-size:11px; color:#94a3b8; margin:10px 0;">— OR PASTE PLAIN TEXT —</div>
+
+        <div>
+          <label style="font-size:11.5px; font-weight:600; color:#334155; display:block; margin-bottom:3px;">
+            Paste Full Exam Paper Text:
+          </label>
+          <textarea id="inp-import-raw-text" rows="6" placeholder="Paste your question paper text here...
+SECTION - A
+1. First short question...
+2. Second short question...
+SECTION - B
+9. a) First essay question
+Or
+b) Alternative question..." style="width:100%; font-family:monospace; font-size:11.5px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:4px;"></textarea>
+        </div>
+
+        <div id="import-status-msg" style="margin-top:8px; font-size:12px; display:none;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+        <button class="btn btn-primary" style="font-size:13px; padding:6px 14px;" onclick="processTextImport()">
+          ⚡ Parse Text & Fill Paper
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="templates.js"></script>

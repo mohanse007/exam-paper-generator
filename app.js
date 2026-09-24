@@ -183,7 +183,12 @@ function renderForm() {
     const qDiv = document.createElement('div');
     qDiv.className = 'form-group question-card';
     qDiv.innerHTML = `
-      <div class="question-card-header">Question ${i + 1}</div>
+      <div class="question-card-header">
+        <span>Question ${i + 1}</span>
+        <button type="button" class="btn-mini-tool" onclick="openTableModal('secA', ${i}, null)">
+          📊 + Add Table
+        </button>
+      </div>
       <textarea rows="2" data-type="secA" data-index="${i}">${escapeHtml(val)}</textarea>
     `;
     secAContainer.appendChild(qDiv);
@@ -211,16 +216,29 @@ function renderSecBAll(container) {
         <span>Question ${q.num} (Compulsory Choice)</span>
         <span style="font-size:10.5px; color:#0284c7; font-weight:normal;" id="q-page-tag-${q.num}"></span>
       </div>
+
       <div class="form-group" style="margin-bottom:5px;">
-        <label>Option (a):</label>
+        <div class="q-box-toolbar">
+          <label style="margin:0;">Option (a):</label>
+          <button type="button" class="btn-mini-tool" onclick="openTableModal('secB', ${idx}, 'a')">
+            📊 + Add Table
+          </button>
+        </div>
         <textarea rows="3" data-type="secB" data-index="${idx}" data-part="a">${escapeHtml(q.a || '')}</textarea>
       </div>
+
       <div class="choice-row">
         <label style="margin:0; font-size:11px;">Choice word:</label>
         <input type="text" data-type="secB" data-index="${idx}" data-part="choice" value="${escapeHtml(q.choice || 'Or')}" />
       </div>
+
       <div class="form-group" style="margin-bottom:2px;">
-        <label>Option (b):</label>
+        <div class="q-box-toolbar">
+          <label style="margin:0;">Option (b):</label>
+          <button type="button" class="btn-mini-tool" onclick="openTableModal('secB', ${idx}, 'b')">
+            📊 + Add Table
+          </button>
+        </div>
         <textarea rows="3" data-type="secB" data-index="${idx}" data-part="b">${escapeHtml(q.b || '')}</textarea>
       </div>
     `;
@@ -927,3 +945,417 @@ window.insertTableTemplate = function() {
 </table>`;
   insertSnippet(tableHtml);
 };
+
+/* =================================================== */
+/* MODULE 1: VISUAL TABLE BUILDER & EXCEL IMPORTER     */
+/* =================================================== */
+
+let activeTableTarget = null; // { type: 'secA'|'secB', index: number, part: 'a'|'b'|null }
+
+window.openTableModal = function(type, index, part) {
+  activeTableTarget = { type, index, part };
+  const modal = document.getElementById('table-builder-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    initTableGridWithDefaults();
+  }
+};
+
+window.closeTableModal = function() {
+  const modal = document.getElementById('table-builder-modal');
+  if (modal) modal.style.display = 'none';
+  activeTableTarget = null;
+};
+
+function initTableGridWithDefaults() {
+  const rows = parseInt(document.getElementById('tbl-rows').value, 10) || 4;
+  const cols = parseInt(document.getElementById('tbl-cols').value, 10) || 3;
+  buildGridHTML(rows, cols, [
+    ['Particulars', '2024', '2025'],
+    ['Sales', '3,00,000', '4,00,000'],
+    ['Cost of goods sold', '1,50,000', '2,00,000'],
+    ['Net Profit', '1,50,000', '2,00,000']
+  ]);
+}
+
+window.resizeTableGrid = function() {
+  const rows = parseInt(document.getElementById('tbl-rows').value, 10) || 2;
+  const cols = parseInt(document.getElementById('tbl-cols').value, 10) || 2;
+  const currentData = getGridData();
+  buildGridHTML(rows, cols, currentData);
+};
+
+window.addTableRow = function() {
+  const rowsInp = document.getElementById('tbl-rows');
+  rowsInp.value = parseInt(rowsInp.value, 10) + 1;
+  resizeTableGrid();
+};
+
+window.removeTableRow = function() {
+  const rowsInp = document.getElementById('tbl-rows');
+  const val = parseInt(rowsInp.value, 10);
+  if (val > 1) {
+    rowsInp.value = val - 1;
+    resizeTableGrid();
+  }
+};
+
+window.addTableCol = function() {
+  const colsInp = document.getElementById('tbl-cols');
+  colsInp.value = parseInt(colsInp.value, 10) + 1;
+  resizeTableGrid();
+};
+
+window.removeTableCol = function() {
+  const colsInp = document.getElementById('tbl-cols');
+  const val = parseInt(colsInp.value, 10);
+  if (val > 1) {
+    colsInp.value = val - 1;
+    resizeTableGrid();
+  }
+};
+
+window.clearTableCells = function() {
+  const rows = parseInt(document.getElementById('tbl-rows').value, 10) || 3;
+  const cols = parseInt(document.getElementById('tbl-cols').value, 10) || 3;
+  buildGridHTML(rows, cols, []);
+};
+
+function buildGridHTML(rows, cols, existingData = []) {
+  const grid = document.getElementById('builder-grid');
+  if (!grid) return;
+
+  const hasHeader = document.getElementById('tbl-has-header').checked;
+  let html = '';
+
+  for (let r = 0; r < rows; r++) {
+    html += '<tr>';
+    const isHead = r === 0 && hasHeader;
+    for (let c = 0; c < cols; c++) {
+      const cellVal = (existingData[r] && existingData[r][c] !== undefined) ? existingData[r][c] : '';
+      if (isHead) {
+        html += `<th><input type="text" value="${escapeHtml(cellVal)}" placeholder="Header ${c + 1}"></th>`;
+      } else {
+        html += `<td><input type="text" value="${escapeHtml(cellVal)}" placeholder="R${r + 1}C${c + 1}"></td>`;
+      }
+    }
+    html += '</tr>';
+  }
+  grid.innerHTML = html;
+}
+
+function getGridData() {
+  const grid = document.getElementById('builder-grid');
+  if (!grid) return [];
+  const rows = grid.querySelectorAll('tr');
+  const data = [];
+  rows.forEach(tr => {
+    const row = [];
+    tr.querySelectorAll('input').forEach(input => {
+      row.push(input.value.trim());
+    });
+    data.push(row);
+  });
+  return data;
+}
+
+// Paste Excel / Google Sheets data
+window.parsePastedExcelData = function() {
+  const pasteInput = document.getElementById('tbl-paste-input');
+  const raw = pasteInput.value.trim();
+  if (!raw) {
+    alert('Please paste copied spreadsheet cells into the box first.');
+    return;
+  }
+
+  // Split lines and tabs
+  const lines = raw.split(/\r?\n/).filter(line => line.trim() !== '');
+  if (lines.length === 0) return;
+
+  const parsedData = lines.map(line => line.split('\t').map(cell => cell.trim()));
+  const numRows = parsedData.length;
+  const numCols = Math.max(...parsedData.map(r => r.length));
+
+  document.getElementById('tbl-rows').value = numRows;
+  document.getElementById('tbl-cols').value = numCols;
+  buildGridHTML(numRows, numCols, parsedData);
+  pasteInput.value = '';
+};
+
+// Generate HTML and insert into active target
+window.insertTableFromModal = function() {
+  if (!activeTableTarget) {
+    alert('No question selected. Please click + Add Table inside a question box.');
+    closeTableModal();
+    return;
+  }
+
+  const isBordered = document.getElementById('tbl-bordered').checked;
+  const hasHeader = document.getElementById('tbl-has-header').checked;
+  const gridData = getGridData();
+
+  if (gridData.length === 0) {
+    closeTableModal();
+    return;
+  }
+
+  const tableClass = isBordered ? 'paper-table bordered' : 'paper-table';
+  let tableHtml = `<table class="${tableClass}">\n`;
+
+  gridData.forEach((row, rIdx) => {
+    tableHtml += '<tr>';
+    const isHead = rIdx === 0 && hasHeader;
+    row.forEach(cell => {
+      const tag = isHead ? 'th' : 'td';
+      tableHtml += `<${tag}>${escapeHtml(cell)}</${tag}>`;
+    });
+    tableHtml += '</tr>\n';
+  });
+  tableHtml += '</table>';
+
+  const { type, index, part } = activeTableTarget;
+
+  if (type === 'secA') {
+    const prev = currentPaper.sectionA.questions[index] || '';
+    currentPaper.sectionA.questions[index] = prev ? `${prev}\n${tableHtml}` : tableHtml;
+  } else if (type === 'secB') {
+    const qObj = currentPaper.sectionB.questions[index];
+    if (qObj) {
+      const prev = qObj[part] || '';
+      qObj[part] = prev ? `${prev}\n${tableHtml}` : tableHtml;
+    }
+  }
+
+  persistState();
+  renderForm();
+  renderPreview();
+  closeTableModal();
+};
+
+/* =================================================== */
+/* MODULE 2: DOCUMENT (.DOCX) & TEXT AUTO-IMPORTER     */
+/* =================================================== */
+
+window.openImportModal = function() {
+  const modal = document.getElementById('import-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    document.getElementById('import-status-msg').style.display = 'none';
+  }
+};
+
+window.closeImportModal = function() {
+  const modal = document.getElementById('import-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+// Handle Word (.docx) upload
+window.handleDocxUpload = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const statusMsg = document.getElementById('import-status-msg');
+  statusMsg.style.display = 'block';
+  statusMsg.style.color = '#0284c7';
+  statusMsg.textContent = '⏳ Reading Word document and converting tables...';
+
+  const reader = new FileReader();
+  reader.onload = function(loadEvent) {
+    const arrayBuffer = loadEvent.target.result;
+
+    if (window.mammoth) {
+      window.mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
+        .then(result => {
+          const html = result.value; // Clean HTML output including <table> tags
+          parseImportedHtmlOrText(html, true);
+          statusMsg.style.color = '#059669';
+          statusMsg.textContent = '✓ Word document successfully imported!';
+          setTimeout(closeImportModal, 900);
+        })
+        .catch(err => {
+          console.error(err);
+          statusMsg.style.color = '#dc2626';
+          statusMsg.textContent = 'Error parsing Word document: ' + err.message;
+        });
+    } else {
+      statusMsg.style.color = '#dc2626';
+      statusMsg.textContent = 'Mammoth parser library not loaded. Please check your internet connection.';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+// Handle plain text import
+window.processTextImport = function() {
+  const rawText = document.getElementById('inp-import-raw-text').value.trim();
+  if (!rawText) {
+    alert('Please paste some question paper text or upload a Word document.');
+    return;
+  }
+  parseImportedHtmlOrText(rawText, false);
+  closeImportModal();
+};
+
+// Core parser for Word HTML / Text
+function parseImportedHtmlOrText(content, isHtml) {
+  let docLines = [];
+
+  if (isHtml) {
+    // Parse using DOM parser to preserve tables cleanly
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, 'text/html');
+
+    // Convert any HTML table into .paper-table bordered
+    doc.querySelectorAll('table').forEach(tbl => {
+      tbl.className = 'paper-table bordered';
+      // Normalize th and td styles
+      tbl.querySelectorAll('p').forEach(p => {
+        const text = p.innerHTML;
+        p.replaceWith(text);
+      });
+    });
+
+    // Extract blocks: paragraphs, headings, tables
+    const blocks = doc.body.children;
+    for (let i = 0; i < blocks.length; i++) {
+      const el = blocks[i];
+      if (el.tagName === 'TABLE') {
+        docLines.push(el.outerHTML);
+      } else {
+        const txt = el.innerText.trim();
+        if (txt) docLines.push(txt);
+      }
+    }
+  } else {
+    docLines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  }
+
+  // Smart Section & Question Extractor
+  extractExamStructure(docLines);
+  persistState();
+  renderForm();
+  renderPreview();
+}
+
+function extractExamStructure(lines) {
+  let currentSection = 'header'; // 'header', 'secA', 'secB'
+  let secAQuestions = [];
+  let secBQuestions = [];
+  let currentSecBQuestion = null;
+  let currentSecBPart = 'a'; // 'a' or 'b'
+
+  lines.forEach(line => {
+    const upper = line.toUpperCase();
+
+    // Check for Section A trigger
+    if (upper.includes('SECTION - A') || upper.includes('SECTION A') || upper.includes('PART - A') || upper.includes('PART A')) {
+      currentSection = 'secA';
+      return;
+    }
+
+    // Check for Section B trigger
+    if (upper.includes('SECTION - B') || upper.includes('SECTION B') || upper.includes('PART - B') || upper.includes('PART B')) {
+      currentSection = 'secB';
+      return;
+    }
+
+    // Header extraction
+    if (currentSection === 'header') {
+      if (line.startsWith('[') && line.includes(']')) {
+        currentPaper.paperCode = line;
+      } else if (upper.includes('COLLEGE') || upper.includes('UNIVERSITY') || upper.includes('INSTITUTE')) {
+        currentPaper.collegeName = line;
+      } else if (upper.includes('TIME:') || upper.includes('TIME :')) {
+        currentPaper.timeStr = line;
+      } else if (upper.includes('MARKS:') || upper.includes('MARKS :') || upper.includes('MAX MARKS')) {
+        currentPaper.maxMarksStr = line;
+      } else if (upper.includes('DEGREE') || upper.includes('SEMESTER') || upper.includes('BATCH')) {
+        currentPaper.examDetails = line;
+      } else if (upper.includes('COURSE') || upper.includes('PAPER')) {
+        currentPaper.subjectTitle = line;
+      } else if (upper.includes('B.COM') || upper.includes('B.SC') || upper.includes('B.A') || upper.includes('MAJOR')) {
+        currentPaper.streamDetails = line;
+      }
+      return;
+    }
+
+    // Section A Question Extraction (1 to 8)
+    if (currentSection === 'secA') {
+      const qMatch = line.match(/^(\d{1,2})[\.\)\-]\s*(.*)/);
+      if (qMatch) {
+        const num = parseInt(qMatch[1], 10);
+        if (num <= 8) {
+          secAQuestions[num - 1] = qMatch[2];
+          return;
+        } else if (num >= 9) {
+          // Implicit Section B started
+          currentSection = 'secB';
+        }
+      } else if (secAQuestions.length > 0) {
+        // Append continuation line / table to previous question
+        secAQuestions[secAQuestions.length - 1] += '\n' + line;
+        return;
+      }
+    }
+
+    // Section B Question Extraction (9 to 13 with Or choice)
+    if (currentSection === 'secB') {
+      // Check for Question start: e.g. "9. a)", "9.", "10."
+      const qStartMatch = line.match(/^(\d{1,2})[\.\)\-]?\s*(?:[aA][\.\)])?\s*(.*)/);
+      const isChoiceWord = upper === 'OR' || upper === '(OR)' || line.includes('(లేదా)') || upper === 'లేదా';
+
+      if (qStartMatch && parseInt(qStartMatch[1], 10) >= 9) {
+        const qNum = parseInt(qStartMatch[1], 10);
+        currentSecBQuestion = {
+          num: qNum,
+          a: qStartMatch[2] || '',
+          choice: 'Or',
+          b: ''
+        };
+        secBQuestions.push(currentSecBQuestion);
+        currentSecBPart = 'a';
+        return;
+      }
+
+      if (isChoiceWord && currentSecBQuestion) {
+        currentSecBQuestion.choice = line;
+        currentSecBPart = 'b';
+        return;
+      }
+
+      // Check for explicit "b)" or "B)"
+      const bPartMatch = line.match(/^[bB][\.\)]\s*(.*)/);
+      if (bPartMatch && currentSecBQuestion) {
+        currentSecBQuestion.b = bPartMatch[1];
+        currentSecBPart = 'b';
+        return;
+      }
+
+      // Append continuation lines or tables
+      if (currentSecBQuestion) {
+        if (currentSecBPart === 'a') {
+          currentSecBQuestion.a += (currentSecBQuestion.a ? '\n' : '') + line;
+        } else {
+          currentSecBQuestion.b += (currentSecBQuestion.b ? '\n' : '') + line;
+        }
+      }
+    }
+  });
+
+  // Assign questions to current paper
+  for (let i = 0; i < 8; i++) {
+    if (secAQuestions[i]) {
+      currentPaper.sectionA.questions[i] = secAQuestions[i];
+    }
+  }
+
+  secBQuestions.forEach(newQ => {
+    const existing = currentPaper.sectionB.questions.find(q => q.num === newQ.num);
+    if (existing) {
+      if (newQ.a) existing.a = newQ.a;
+      if (newQ.choice) existing.choice = newQ.choice;
+      if (newQ.b) existing.b = newQ.b;
+    }
+  });
+}
+
