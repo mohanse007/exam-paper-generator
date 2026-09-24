@@ -21,6 +21,14 @@
   <!-- mammoth.js for Client-Side Word (.docx) Document Parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 
+  <!-- PDF.js for Client-Side PDF Parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -383,26 +391,26 @@
       <div class="modal-header">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size:18px;">📤</span>
-          <h3 style="font-size:15px; font-weight:700; color:#0f172a;">Import Question Paper (.docx / Text)</h3>
+          <h3 style="font-size:15px; font-weight:700; color:#0f172a;">Import Question Paper (Word .docx / PDF / Text)</h3>
         </div>
         <button class="modal-close-btn" onclick="closeImportModal()">&times;</button>
       </div>
 
       <div class="modal-body">
         <p style="font-size:12px; color:#475569; margin-bottom:12px;">
-          Upload a standard Microsoft Word document (<code>.docx</code>) or paste raw text. The tool will automatically detect the header, Section A questions, Section B choice questions, and <strong>Word tables</strong>!
+          Upload a <strong>Word document (<code>.docx</code>)</strong>, <strong>PDF (<code>.pdf</code>)</strong>, or paste raw text. The tool automatically detects header details, Section A questions, Section B choice questions, and tables!
         </p>
 
         <!-- Drag & Drop / File Select Box -->
         <div class="import-drop-zone" id="import-drop-zone" onclick="document.getElementById('docx-file-input').click()">
           <span style="font-size:32px;">📄</span>
           <div style="font-weight:600; font-size:13px; color:#0f172a; margin-top:4px;">
-            Click to upload Word (.docx) file, or drag and drop here
+            Click to upload Word (.docx) or PDF (.pdf) file, or drag and drop here
           </div>
           <div style="font-size:11px; color:#64748b; margin-top:2px;">
             Extracts all questions, marks, and accounting/math tables automatically
           </div>
-          <input type="file" id="docx-file-input" accept=".docx,.txt" style="display:none;" onchange="handleDocxUpload(event)">
+          <input type="file" id="docx-file-input" accept=".docx,.pdf,.txt" style="display:none;" onchange="handleFileUpload(event)">
         </div>
 
         <div style="text-align:center; font-size:11px; color:#94a3b8; margin:10px 0;">— OR PASTE PLAIN TEXT —</div>

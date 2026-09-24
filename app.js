@@ -1149,40 +1149,97 @@ window.closeImportModal = function() {
   if (modal) modal.style.display = 'none';
 };
 
-// Handle Word (.docx) upload
-window.handleDocxUpload = function(event) {
+// Handle File upload (.docx, .pdf, .txt)
+window.handleFileUpload = function(event) {
   const file = event.target.files[0];
   if (!file) return;
 
+  const fileName = file.name.toLowerCase();
   const statusMsg = document.getElementById('import-status-msg');
   statusMsg.style.display = 'block';
   statusMsg.style.color = '#0284c7';
-  statusMsg.textContent = '⏳ Reading Word document and converting tables...';
 
-  const reader = new FileReader();
-  reader.onload = function(loadEvent) {
-    const arrayBuffer = loadEvent.target.result;
+  if (fileName.endsWith('.pdf')) {
+    // PDF Parsing using PDF.js
+    statusMsg.textContent = '⏳ Reading PDF pages and extracting text & questions...';
+    const fileReader = new FileReader();
+    fileReader.onload = function() {
+      const typedarray = new Uint8Array(this.result);
+      if (window.pdfjsLib) {
+        pdfjsLib.getDocument(typedarray).promise.then(async function(pdf) {
+          let fullText = '';
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageItems = textContent.items;
 
-    if (window.mammoth) {
-      window.mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
-        .then(result => {
-          const html = result.value; // Clean HTML output including <table> tags
-          parseImportedHtmlOrText(html, true);
+            // Sort text items by vertical position (Y) and horizontal (X) for accurate reading
+            let lastY = null;
+            let pageStr = '';
+            for (let item of pageItems) {
+              if (lastY === null || Math.abs(item.transform[5] - lastY) > 5) {
+                pageStr += '\n' + item.str;
+                lastY = item.transform[5];
+              } else {
+                pageStr += ' ' + item.str;
+              }
+            }
+            fullText += '\n' + pageStr;
+          }
+          parseImportedHtmlOrText(fullText, false);
           statusMsg.style.color = '#059669';
-          statusMsg.textContent = '✓ Word document successfully imported!';
+          statusMsg.textContent = '✓ PDF successfully imported!';
           setTimeout(closeImportModal, 900);
-        })
-        .catch(err => {
+        }).catch(err => {
           console.error(err);
           statusMsg.style.color = '#dc2626';
-          statusMsg.textContent = 'Error parsing Word document: ' + err.message;
+          statusMsg.textContent = 'Error parsing PDF: ' + err.message;
         });
-    } else {
-      statusMsg.style.color = '#dc2626';
-      statusMsg.textContent = 'Mammoth parser library not loaded. Please check your internet connection.';
-    }
-  };
-  reader.readAsArrayBuffer(file);
+      } else {
+        statusMsg.style.color = '#dc2626';
+        statusMsg.textContent = 'PDF.js library not loaded. Please ensure internet access.';
+      }
+    };
+    fileReader.readAsArrayBuffer(file);
+
+  } else if (fileName.endsWith('.docx')) {
+    // Word (.docx) Parsing using Mammoth
+    statusMsg.textContent = '⏳ Reading Word document and converting tables...';
+    const reader = new FileReader();
+    reader.onload = function(loadEvent) {
+      const arrayBuffer = loadEvent.target.result;
+      if (window.mammoth) {
+        window.mammoth.convertToHtml({ arrayBuffer: arrayBuffer })
+          .then(result => {
+            const html = result.value;
+            parseImportedHtmlOrText(html, true);
+            statusMsg.style.color = '#059669';
+            statusMsg.textContent = '✓ Word document successfully imported!';
+            setTimeout(closeImportModal, 900);
+          })
+          .catch(err => {
+            console.error(err);
+            statusMsg.style.color = '#dc2626';
+            statusMsg.textContent = 'Error parsing Word document: ' + err.message;
+          });
+      } else {
+        statusMsg.style.color = '#dc2626';
+        statusMsg.textContent = 'Mammoth parser library not loaded. Please ensure internet access.';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+
+  } else {
+    // Plain Text file
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      parseImportedHtmlOrText(e.target.result, false);
+      statusMsg.style.color = '#059669';
+      statusMsg.textContent = '✓ Text file imported!';
+      setTimeout(closeImportModal, 900);
+    };
+    reader.readAsText(file);
+  }
 };
 
 // Handle plain text import
