@@ -551,7 +551,18 @@ function generateSecBGroupHTML(questions, showHeader = false) {
 function formatQuestionContent(str) {
   if (!str) return '';
   if (str.includes('<table')) return str;
-  return escapeHtml(str).replace(/\n/g, '<br/>');
+  // Allow safe formatting tags: <sub>, <sup>, <b>, <i>, <br>
+  let safe = escapeHtml(str)
+    .replace(/&lt;sub&gt;/gi, '<sub>')
+    .replace(/&lt;\/sub&gt;/gi, '</sub>')
+    .replace(/&lt;sup&gt;/gi, '<sup>')
+    .replace(/&lt;\/sup&gt;/gi, '</sup>')
+    .replace(/&lt;b&gt;/gi, '<b>')
+    .replace(/&lt;\/b&gt;/gi, '</b>')
+    .replace(/&lt;i&gt;/gi, '<i>')
+    .replace(/&lt;\/i&gt;/gi, '</i>')
+    .replace(/\n/g, '<br/>');
+  return safe;
 }
 
 // Render Preview
@@ -1258,7 +1269,7 @@ function parseImportedHtmlOrText(content, isHtml) {
   let docLines = [];
 
   if (isHtml) {
-    // Parse using DOM parser to preserve tables cleanly
+    // Parse using DOM parser to preserve tables, subscripts, superscripts, and paragraphs cleanly
     const parser = new DOMParser();
     const doc = parser.parseFromString(content, 'text/html');
 
@@ -1272,6 +1283,32 @@ function parseImportedHtmlOrText(content, isHtml) {
       });
     });
 
+    // Helper to sanitize an inline HTML node while preserving <sub>, <sup>, <b>, <i>, <table>
+    function extractFormattedText(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent;
+      }
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'table') {
+          return node.outerHTML;
+        }
+        if (tag === 'sub' || tag === 'sup' || tag === 'b' || tag === 'strong' || tag === 'i' || tag === 'em') {
+          let inner = '';
+          node.childNodes.forEach(child => { inner += extractFormattedText(child); });
+          const outTag = (tag === 'strong') ? 'b' : (tag === 'em') ? 'i' : tag;
+          return `<${outTag}>${inner}</${outTag}>`;
+        }
+        if (tag === 'br') {
+          return '\n';
+        }
+        let inner = '';
+        node.childNodes.forEach(child => { inner += extractFormattedText(child); });
+        return inner;
+      }
+      return '';
+    }
+
     // Extract blocks: paragraphs, headings, tables
     const blocks = doc.body.children;
     for (let i = 0; i < blocks.length; i++) {
@@ -1279,8 +1316,8 @@ function parseImportedHtmlOrText(content, isHtml) {
       if (el.tagName === 'TABLE') {
         docLines.push(el.outerHTML);
       } else {
-        const txt = el.innerText.trim();
-        if (txt) docLines.push(txt);
+        const formatted = extractFormattedText(el).trim();
+        if (formatted) docLines.push(formatted);
       }
     }
   } else {
@@ -1295,14 +1332,56 @@ function parseImportedHtmlOrText(content, isHtml) {
 }
 
 function extractExamStructure(lines) {
+  // 1. Reset current paper to clean slate so old template text doesn't mix with imported paper
+  currentPaper = {
+    paperCode: '',
+    collegeName: '',
+    collegeAddress: '',
+    examDetails: '',
+    subjectTitle: '',
+    streamDetails: '',
+    timeStr: 'Time:3Hrs',
+    maxMarksStr: 'Max Marks:60',
+    sectionA: {
+      title: 'SECTION - A',
+      instruction: 'I. Answer any Five questions.',
+      marks: '5x4=20',
+      questions: ['', '', '', '', '', '', '', '']
+    },
+    sectionB: {
+      title: 'SECTION - B',
+      instruction: 'II. Answer ALL the following questions.',
+      marks: '5x8=40',
+      questions: [
+        { num: 9, a: '', choice: 'Or', b: '' },
+        { num: 10, a: '', choice: 'Or', b: '' },
+        { num: 11, a: '', choice: 'Or', b: '' },
+        { num: 12, a: '', choice: 'Or', b: '' },
+        { num: 13, a: '', choice: 'Or', b: '' }
+      ]
+    }
+  };
+
   let currentSection = 'header'; // 'header', 'secA', 'secB'
   let secAQuestions = [];
   let secBQuestions = [];
   let currentSecBQuestion = null;
   let currentSecBPart = 'a'; // 'a' or 'b'
+  let headerLines = [];
+
+  // Helper to clean up sub-question numbers like "ii." or "ii)" that run together in a paragraph
+  function formatSubpoints(text) {
+    if (!text) return '';
+    // Strip redundant leading "a)" or "b)" or "a." or "b." if present at start
+    text = text.replace(/^[aAbB][\.\)]\s*/, '').trim();
+    // Add clean newline before roman numerals like "ii.", "iii.", "iv.", "ii)", "iii)" or "b)" when preceded by text
+    text = text.replace(/([^\n])\s+(ii|iii|iv|v|vi|b)[\.\)]\s+/gi, '$1\n$2) ');
+    return text;
+  }
 
   lines.forEach(line => {
-    const upper = line.toUpperCase();
+    const rawText = line.replace(/<[^>]*>/g, '').trim();
+    const upper = rawText.toUpperCase();
 
     // Check for Section A trigger
     if (upper.includes('SECTION - A') || upper.includes('SECTION A') || upper.includes('PART - A') || upper.includes('PART A')) {
@@ -1318,31 +1397,45 @@ function extractExamStructure(lines) {
 
     // Header extraction
     if (currentSection === 'header') {
-      if (line.startsWith('[') && line.includes(']')) {
-        currentPaper.paperCode = line;
-      } else if (upper.includes('COLLEGE') || upper.includes('UNIVERSITY') || upper.includes('INSTITUTE')) {
-        currentPaper.collegeName = line;
-      } else if (upper.includes('TIME:') || upper.includes('TIME :')) {
-        currentPaper.timeStr = line;
-      } else if (upper.includes('MARKS:') || upper.includes('MARKS :') || upper.includes('MAX MARKS')) {
-        currentPaper.maxMarksStr = line;
-      } else if (upper.includes('DEGREE') || upper.includes('SEMESTER') || upper.includes('BATCH')) {
-        currentPaper.examDetails = line;
-      } else if (upper.includes('COURSE') || upper.includes('PAPER')) {
-        currentPaper.subjectTitle = line;
-      } else if (upper.includes('B.COM') || upper.includes('B.SC') || upper.includes('B.A') || upper.includes('MAJOR')) {
-        currentPaper.streamDetails = line;
+      if (rawText.startsWith('[') && rawText.includes(']')) {
+        currentPaper.paperCode = rawText;
+        return;
       }
+
+      // Check Time and Marks anywhere
+      if (upper.includes('TIME:') || upper.includes('TIME :') || upper.includes('HOURS') || upper.includes('HRS')) {
+        // Match Time & Marks on same line if present
+        const timeMatch = rawText.match(/Time\s*[:\-]?\s*([0-9\.\s\w]+?)(?=\s+(?:Max|Marks|Set)|$)/i);
+        const marksMatch = rawText.match(/(?:Max\s*Marks|Marks)\s*[:\-]?\s*([0-9]+)/i);
+        if (timeMatch) currentPaper.timeStr = 'Time:' + timeMatch[1].trim();
+        else currentPaper.timeStr = rawText;
+        if (marksMatch) currentPaper.maxMarksStr = 'Max Marks:' + marksMatch[1].trim();
+        return;
+      }
+
+      if (upper.includes('MARKS:') || upper.includes('MARKS :') || upper.includes('MAX MARKS')) {
+        const marksMatch = rawText.match(/(?:Max\s*Marks|Marks)\s*[:\-]?\s*([0-9]+)/i);
+        if (marksMatch) currentPaper.maxMarksStr = 'Max Marks:' + marksMatch[1].trim();
+        else currentPaper.maxMarksStr = rawText;
+        return;
+      }
+
+      headerLines.push(rawText);
       return;
     }
 
     // Section A Question Extraction (1 to 8)
     if (currentSection === 'secA') {
+      // Check for instruction line
+      if (upper.includes('ANSWER ANY') || upper.includes('FIVE QUESTIONS') || upper.includes('MARKS')) {
+        return;
+      }
+
       const qMatch = line.match(/^(\d{1,2})[\.\)\-]\s*(.*)/);
       if (qMatch) {
         const num = parseInt(qMatch[1], 10);
         if (num <= 8) {
-          secAQuestions[num - 1] = qMatch[2];
+          secAQuestions[num - 1] = formatSubpoints(qMatch[2]);
           return;
         } else if (num >= 9) {
           // Implicit Section B started
@@ -1350,13 +1443,18 @@ function extractExamStructure(lines) {
         }
       } else if (secAQuestions.length > 0) {
         // Append continuation line / table to previous question
-        secAQuestions[secAQuestions.length - 1] += '\n' + line;
+        secAQuestions[secAQuestions.length - 1] += '\n' + formatSubpoints(line);
         return;
       }
     }
 
     // Section B Question Extraction (9 to 13 with Or choice)
     if (currentSection === 'secB') {
+      // Check for instruction line
+      if (upper.includes('ANSWER ALL') || upper.includes('FOLLOWING QUESTIONS')) {
+        return;
+      }
+
       // Check for Question start: e.g. "9. a)", "9.", "10."
       const qStartMatch = line.match(/^(\d{1,2})[\.\)\-]?\s*(?:[aA][\.\)])?\s*(.*)/);
       const isChoiceWord = upper === 'OR' || upper === '(OR)' || line.includes('(లేదా)') || upper === 'లేదా';
@@ -1365,7 +1463,7 @@ function extractExamStructure(lines) {
         const qNum = parseInt(qStartMatch[1], 10);
         currentSecBQuestion = {
           num: qNum,
-          a: qStartMatch[2] || '',
+          a: formatSubpoints(qStartMatch[2] || ''),
           choice: 'Or',
           b: ''
         };
@@ -1375,7 +1473,7 @@ function extractExamStructure(lines) {
       }
 
       if (isChoiceWord && currentSecBQuestion) {
-        currentSecBQuestion.choice = line;
+        currentSecBQuestion.choice = '(Or)';
         currentSecBPart = 'b';
         return;
       }
@@ -1383,21 +1481,49 @@ function extractExamStructure(lines) {
       // Check for explicit "b)" or "B)"
       const bPartMatch = line.match(/^[bB][\.\)]\s*(.*)/);
       if (bPartMatch && currentSecBQuestion) {
-        currentSecBQuestion.b = bPartMatch[1];
+        currentSecBQuestion.b = formatSubpoints(bPartMatch[1]);
         currentSecBPart = 'b';
         return;
       }
 
       // Append continuation lines or tables
       if (currentSecBQuestion) {
+        const formatted = formatSubpoints(line);
         if (currentSecBPart === 'a') {
-          currentSecBQuestion.a += (currentSecBQuestion.a ? '\n' : '') + line;
+          currentSecBQuestion.a += (currentSecBQuestion.a ? '\n' : '') + formatted;
         } else {
-          currentSecBQuestion.b += (currentSecBQuestion.b ? '\n' : '') + line;
+          currentSecBQuestion.b += (currentSecBQuestion.b ? '\n' : '') + formatted;
         }
       }
     }
   });
+
+  // Assign parsed header lines cleanly
+  if (headerLines.length > 0) {
+    currentPaper.collegeName = headerLines[0] || 'COLLEGE NAME';
+    if (headerLines.length > 1) {
+      // Look for address / college recognition
+      const addrIdx = headerLines.findIndex((l, i) => i > 0 && (l.includes('530') || l.includes('UGC') || l.includes('NAAC') || l.includes('Malkapuram') || l.includes('Andhra')));
+      if (addrIdx !== -1) {
+        currentPaper.collegeAddress = headerLines[addrIdx];
+      }
+      // Look for exam / semester details
+      const examIdx = headerLines.findIndex((l, i) => i > 0 && (l.toUpperCase().includes('SEMESTER') || l.toUpperCase().includes('BATCH') || l.toUpperCase().includes('DEGREE') || l.toUpperCase().includes('EXAMINATIONS')));
+      if (examIdx !== -1) {
+        currentPaper.examDetails = headerLines[examIdx];
+      }
+      // Look for subject course title
+      const courseIdx = headerLines.findIndex((l, i) => i > 0 && (l.toUpperCase().includes('COURSE') || l.toUpperCase().includes('CHEMISTRY') || l.toUpperCase().includes('PHYSICS') || l.toUpperCase().includes('MATHEMATICS') || l.toUpperCase().includes('COMMERCE') || l.toUpperCase().includes('ACCOUNTING') || l.toUpperCase().includes('PAPER')));
+      if (courseIdx !== -1 && courseIdx !== examIdx) {
+        currentPaper.subjectTitle = headerLines[courseIdx];
+      }
+      // Look for stream
+      const streamIdx = headerLines.findIndex((l, i) => i > 0 && (l.toUpperCase().includes('B.SC') || l.toUpperCase().includes('B.COM') || l.toUpperCase().includes('B.A') || l.toUpperCase().includes('MAJOR')));
+      if (streamIdx !== -1 && streamIdx !== courseIdx && streamIdx !== examIdx) {
+        currentPaper.streamDetails = headerLines[streamIdx];
+      }
+    }
+  }
 
   // Assign questions to current paper
   for (let i = 0; i < 8; i++) {
