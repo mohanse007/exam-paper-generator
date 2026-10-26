@@ -1,6 +1,8 @@
 :root {
   --base-paper-font: 9.5pt;
   --question-gap: 3px;
+  --sec-a-gap: 3px;
+  --sec-b-gap: 6px;
   --section-gap: 6px;
   --line-height: 1.25;
   --letter-spacing: 0px;
@@ -135,6 +137,14 @@ body {
 }
 .btn-purple:hover {
   background-color: #7c3aed;
+}
+
+.btn-danger {
+  background-color: #dc2626;
+  color: #fff;
+}
+.btn-danger:hover {
+  background-color: #b91c1c;
 }
 
 /* Main Split View */
@@ -701,6 +711,31 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--question-gap);
+}
+
+/* Section A Specific Spacing & Typography */
+.section-a-wrap .sec-a-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sec-a-gap, 3px);
+}
+
+.section-a-wrap .q-item {
+  font-size: var(--sec-a-font, var(--base-paper-font));
+  margin-bottom: 0;
+}
+
+/* Section B Specific Spacing & Typography */
+.section-b-wrap .sec-b-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sec-b-gap, 6px);
+}
+
+.section-b-wrap .choice-q,
+.section-b-wrap .q-item {
+  font-size: var(--sec-b-font, var(--base-paper-font));
+  margin-bottom: 0;
 }
 
 .q-item {

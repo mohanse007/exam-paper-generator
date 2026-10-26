@@ -5,6 +5,8 @@ let pageFlowMode = 'auto'; // 'auto' (fill p1 first), 'balance', or manual quest
 let baseFontSize = '9.5pt';
 let lineHeight = '1.25';
 let questionGap = '3px';
+let secAGap = '3px';
+let secBGap = '6px';
 let sectionGap = '6px';
 let autoSpreadSpace = true; // spreads vertical spacing to avoid bottom gaps
 let showCutLine = false;
@@ -65,6 +67,10 @@ try {
   if (savedLh) lineHeight = savedLh;
   const savedGap = localStorage.getItem('exam_question_gap');
   if (savedGap) questionGap = savedGap;
+  const savedSecAGap = localStorage.getItem('exam_sec_a_gap');
+  if (savedSecAGap) secAGap = savedSecAGap;
+  const savedSecBGap = localStorage.getItem('exam_sec_b_gap');
+  if (savedSecBGap) secBGap = savedSecBGap;
   const savedSecGap = localStorage.getItem('exam_section_gap');
   if (savedSecGap) sectionGap = savedSecGap;
 } catch (e) {}
@@ -88,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindFormInputs();
   renderForm();
   updateLayoutModeUI();
-  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, false);
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, false);
   updateDtpToolbarUI();
   renderPreview();
   setupZoom();
@@ -458,38 +464,40 @@ function calculateDynamicPagination() {
     <div class="${is2Up ? 'paper-half' : 'paper-full'}" style="width:${colWidth}; height:auto; visibility:hidden; position:absolute;">
       <div id="m-header">${generateHeaderHTML()}</div>
       <div id="m-sec-a">${generateSectionAHTML()}</div>
-      <div id="m-sec-b-header">
-        <div class="section-header">${escapeHtml(currentPaper.sectionB.title || 'SECTION - B')}</div>
-        <div class="instruction-row">
-          <span>${escapeHtml(currentPaper.sectionB.instruction || '')}</span>
-          <span class="instruction-marks">${escapeHtml(currentPaper.sectionB.marks || '')}</span>
+      <div class="section-b-wrap">
+        <div id="m-sec-b-header">
+          <div class="section-header">${escapeHtml(currentPaper.sectionB.title || 'SECTION - B')}</div>
+          <div class="instruction-row">
+            <span>${escapeHtml(currentPaper.sectionB.instruction || '')}</span>
+            <span class="instruction-marks">${escapeHtml(currentPaper.sectionB.marks || '')}</span>
+          </div>
         </div>
-      </div>
-      <div id="m-questions">
-        ${allSecB.map(q => {
-          if (q.b && q.b.trim()) {
-            return `
-              <div class="choice-q" id="m-q-${q.num}">
-                <div class="choice-part-row">
-                  <span class="choice-part-num">${q.num}. a)</span>
+        <div id="m-questions" class="questions-list sec-b-list">
+          ${allSecB.map(q => {
+            if (q.b && q.b.trim()) {
+              return `
+                <div class="choice-q" id="m-q-${q.num}">
+                  <div class="choice-part-row">
+                    <span class="choice-part-num">${q.num}. a)</span>
+                    <div class="q-text">${formatQuestionContent(q.a || '')}</div>
+                  </div>
+                  <div class="choice-label">${q.choice || 'Or'}</div>
+                  <div class="choice-part-row">
+                    <span class="choice-sub-num">b)</span>
+                    <div class="q-text">${formatQuestionContent(q.b || '')}</div>
+                  </div>
+                </div>
+              `;
+            } else {
+              return `
+                <div class="q-item" id="m-q-${q.num}">
+                  <span class="q-num">${q.num}.</span>
                   <div class="q-text">${formatQuestionContent(q.a || '')}</div>
                 </div>
-                <div class="choice-label">${q.choice || 'Or'}</div>
-                <div class="choice-part-row">
-                  <span class="choice-sub-num">b)</span>
-                  <div class="q-text">${formatQuestionContent(q.b || '')}</div>
-                </div>
-              </div>
-            `;
-          } else {
-            return `
-              <div class="q-item" id="m-q-${q.num}" style="margin-bottom:var(--question-gap);">
-                <span class="q-num">${q.num}.</span>
-                <div class="q-text">${formatQuestionContent(q.a || '')}</div>
-              </div>
-            `;
-          }
-        }).join('')}
+              `;
+            }
+          }).join('')}
+        </div>
       </div>
     </div>
   `;
@@ -615,13 +623,15 @@ function generateSectionAHTML() {
   }
 
   return `
-    <div class="section-header">${escapeHtml(p.sectionA.title || 'SECTION - A')}</div>
-    <div class="instruction-row">
-      <span>${escapeHtml(p.sectionA.instruction || '')}</span>
-      <span class="instruction-marks">${escapeHtml(p.sectionA.marks || '')}</span>
-    </div>
-    <div class="questions-list">
-      ${qHtml}
+    <div class="section-a-wrap">
+      <div class="section-header">${escapeHtml(p.sectionA.title || 'SECTION - A')}</div>
+      <div class="instruction-row">
+        <span>${escapeHtml(p.sectionA.instruction || '')}</span>
+        <span class="instruction-marks">${escapeHtml(p.sectionA.marks || '')}</span>
+      </div>
+      <div class="questions-list sec-a-list">
+        ${qHtml}
+      </div>
     </div>
   `;
 }
@@ -658,7 +668,7 @@ function generateSecBGroupHTML(questions, showHeader = false) {
       `;
     } else {
       qItems += `
-        <div class="q-item" style="margin-bottom:var(--question-gap);">
+        <div class="q-item">
           <span class="q-num">${q.num}.</span>
           <div class="q-text">${formatQuestionContent(q.a || '')}</div>
         </div>
@@ -666,7 +676,14 @@ function generateSecBGroupHTML(questions, showHeader = false) {
     }
   });
 
-  return secBHtml + `<div class="questions-list">${qItems}</div>`;
+  return `
+    <div class="section-b-wrap">
+      ${secBHtml}
+      <div class="questions-list sec-b-list">
+        ${qItems}
+      </div>
+    </div>
+  `;
 }
 
 // Format Question text
@@ -855,22 +872,33 @@ function checkPageOverflow(totalPages) {
 // CANVA / PHOTOSHOP STYLE DTP SPACING & TYPOGRAPHY
 // ===================================================
 
-function applySpacingValues(font, lh, gap, secGap, persist = true) {
-  baseFontSize = font;
-  lineHeight = lh;
-  questionGap = gap;
-  sectionGap = secGap;
+function applySpacingValues(font, lh, gapA, gapB, secGap, persist = true) {
+  // Support legacy 4-argument call: (font, lh, gap, secGap, persist)
+  if (arguments.length === 4 || (typeof secGap === 'boolean')) {
+    persist = (typeof secGap === 'boolean') ? secGap : true;
+    secGap = gapB;
+    gapB = gapA;
+  }
+  baseFontSize = font || baseFontSize;
+  lineHeight = lh || lineHeight;
+  secAGap = gapA || secAGap;
+  secBGap = gapB || secBGap;
+  sectionGap = secGap || sectionGap;
 
   document.documentElement.style.setProperty('--base-paper-font', baseFontSize);
   document.documentElement.style.setProperty('--line-height', lineHeight);
-  document.documentElement.style.setProperty('--question-gap', questionGap);
+  document.documentElement.style.setProperty('--question-gap', secAGap);
+  document.documentElement.style.setProperty('--sec-a-gap', secAGap);
+  document.documentElement.style.setProperty('--sec-b-gap', secBGap);
   document.documentElement.style.setProperty('--section-gap', sectionGap);
 
   if (persist) {
     try {
       localStorage.setItem('exam_base_font', baseFontSize);
       localStorage.setItem('exam_line_height', lineHeight);
-      localStorage.setItem('exam_question_gap', questionGap);
+      localStorage.setItem('exam_sec_a_gap', secAGap);
+      localStorage.setItem('exam_sec_b_gap', secBGap);
+      localStorage.setItem('exam_question_gap', secAGap);
       localStorage.setItem('exam_section_gap', sectionGap);
     } catch (e) {}
   }
@@ -879,7 +907,8 @@ function applySpacingValues(font, lh, gap, secGap, persist = true) {
 function updateDtpToolbarUI() {
   const fNum = parseFloat(baseFontSize) || 9.5;
   const lhNum = parseFloat(lineHeight) || 1.25;
-  const gapNum = parseInt(questionGap, 10) || 3;
+  const gapANum = parseInt(secAGap, 10) || 3;
+  const gapBNum = parseInt(secBGap, 10) || 6;
   const secGapNum = parseInt(sectionGap, 10) || 6;
 
   const slFont = document.getElementById('slider-font-size');
@@ -892,11 +921,29 @@ function updateDtpToolbarUI() {
   const valLh = document.getElementById('val-line-height');
   if (valLh) valLh.textContent = lhNum.toFixed(2);
 
-  const slGap = document.getElementById('slider-question-gap');
-  if (slGap) slGap.value = gapNum;
-  const valGap = document.getElementById('val-question-gap');
-  if (valGap) valGap.textContent = questionGap;
+  // Section A Gap (Toolbar & Sidebar)
+  const slGapA = document.getElementById('slider-sec-a-gap');
+  if (slGapA) slGapA.value = gapANum;
+  const valGapA = document.getElementById('val-sec-a-gap');
+  if (valGapA) valGapA.textContent = secAGap;
 
+  const slSideGapA = document.getElementById('slider-sidebar-sec-a-gap');
+  if (slSideGapA) slSideGapA.value = gapANum;
+  const valSideGapA = document.getElementById('val-sidebar-sec-a-gap');
+  if (valSideGapA) valSideGapA.textContent = secAGap;
+
+  // Section B Gap (Toolbar & Sidebar)
+  const slGapB = document.getElementById('slider-sec-b-gap');
+  if (slGapB) slGapB.value = gapBNum;
+  const valGapB = document.getElementById('val-sec-b-gap');
+  if (valGapB) valGapB.textContent = secBGap;
+
+  const slSideGapB = document.getElementById('slider-sidebar-sec-b-gap');
+  if (slSideGapB) slSideGapB.value = gapBNum;
+  const valSideGapB = document.getElementById('val-sidebar-sec-b-gap');
+  if (valSideGapB) valSideGapB.textContent = secBGap;
+
+  // Section Gap
   const slSecGap = document.getElementById('slider-section-gap');
   if (slSecGap) slSecGap.value = secGapNum;
   const valSecGap = document.getElementById('val-section-gap');
@@ -907,7 +954,7 @@ window.nudgeFontSize = function(delta) {
   let cur = parseFloat(baseFontSize) || 9.5;
   cur = Math.min(12.0, Math.max(7.5, Math.round((cur + delta) * 100) / 100));
   baseFontSize = cur + 'pt';
-  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
   updateDtpToolbarUI();
   renderPreview();
 };
@@ -916,23 +963,56 @@ window.nudgeLineHeight = function(delta) {
   let cur = parseFloat(lineHeight) || 1.25;
   cur = Math.min(1.65, Math.max(1.10, Math.round((cur + delta) * 100) / 100));
   lineHeight = cur.toFixed(2);
-  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
   updateDtpToolbarUI();
   renderPreview();
 };
 
-window.nudgeQuestionGap = function(delta) {
-  let cur = parseInt(questionGap, 10) || 3;
+window.nudgeSecAGap = function(delta) {
+  let cur = parseInt(secAGap, 10) || 3;
   cur = Math.min(18, Math.max(0, cur + delta));
-  questionGap = cur + 'px';
-  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  secAGap = cur + 'px';
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
   updateDtpToolbarUI();
   renderPreview();
+};
+
+window.onSecAGapSlider = function(val) {
+  secAGap = val + 'px';
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+window.nudgeSecBGap = function(delta) {
+  let cur = parseInt(secBGap, 10) || 6;
+  cur = Math.min(22, Math.max(0, cur + delta));
+  secBGap = cur + 'px';
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+window.onSecBGapSlider = function(val) {
+  secBGap = val + 'px';
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+// Backwards compatibility for question gap
+window.nudgeQuestionGap = function(delta) {
+  window.nudgeSecAGap(delta);
+  window.nudgeSecBGap(delta);
+};
+window.onQuestionGapSlider = function(val) {
+  window.onSecAGapSlider(val);
+  window.onSecBGapSlider(val);
 };
 
 window.onFontSizeSlider = function(val) {
   baseFontSize = val + 'pt';
-  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
   const valFont = document.getElementById('val-font-size');
   if (valFont) valFont.textContent = baseFontSize;
   renderPreview();
@@ -940,23 +1020,15 @@ window.onFontSizeSlider = function(val) {
 
 window.onLineHeightSlider = function(val) {
   lineHeight = parseFloat(val).toFixed(2);
-  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
   const valLh = document.getElementById('val-line-height');
   if (valLh) valLh.textContent = lineHeight;
   renderPreview();
 };
 
-window.onQuestionGapSlider = function(val) {
-  questionGap = val + 'px';
-  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
-  const valGap = document.getElementById('val-question-gap');
-  if (valGap) valGap.textContent = questionGap;
-  renderPreview();
-};
-
 window.onSectionGapSlider = function(val) {
   sectionGap = val + 'px';
-  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
   const valSecGap = document.getElementById('val-section-gap');
   if (valSecGap) valSecGap.textContent = sectionGap;
   renderPreview();
@@ -965,13 +1037,13 @@ window.onSectionGapSlider = function(val) {
 window.applyPreset = function(presetName) {
   if (presetName === 'full') {
     // For short papers: larger font and generous spacing to eliminate empty bottom gap
-    applySpacingValues('10.5pt', '1.35', '6px', '10px', true);
+    applySpacingValues('10.5pt', '1.35', '5px', '8px', '10px', true);
   } else if (presetName === 'standard') {
     // Standard balanced spacing
-    applySpacingValues('9.5pt', '1.25', '3px', '6px', true);
+    applySpacingValues('9.5pt', '1.25', '3px', '6px', '6px', true);
   } else if (presetName === 'compact') {
     // For long papers with tables: compact
-    applySpacingValues('8.5pt', '1.16', '1px', '3px', true);
+    applySpacingValues('8.5pt', '1.16', '1px', '3px', '3px', true);
   }
   updateDtpToolbarUI();
   renderPreview();
@@ -980,22 +1052,22 @@ window.applyPreset = function(presetName) {
 // Smart Auto-Fit: Automatically calculates the best font size & spacing to fill 92-99% of page cleanly
 window.autoFillPageHeight = function() {
   const configurations = [
-    { font: '10.5pt', lh: '1.35', gap: '6px',  secGap: '10px' },
-    { font: '10.0pt', lh: '1.32', gap: '5px',  secGap: '9px' },
-    { font: '9.75pt', lh: '1.28', gap: '4px',  secGap: '8px' },
-    { font: '9.5pt',  lh: '1.25', gap: '3px',  secGap: '6px' },
-    { font: '9.25pt', lh: '1.22', gap: '3px',  secGap: '5px' },
-    { font: '9.0pt',  lh: '1.20', gap: '2px',  secGap: '4px' },
-    { font: '8.75pt', lh: '1.18', gap: '1.5px',secGap: '3px' },
-    { font: '8.5pt',  lh: '1.16', gap: '1px',  secGap: '2px' },
-    { font: '8.0pt',  lh: '1.14', gap: '0px',  secGap: '2px' }
+    { font: '10.5pt', lh: '1.35', gapA: '5px',   gapB: '8px', secGap: '10px' },
+    { font: '10.0pt', lh: '1.32', gapA: '4px',   gapB: '7px', secGap: '9px' },
+    { font: '9.75pt', lh: '1.28', gapA: '3.5px', gapB: '6px', secGap: '8px' },
+    { font: '9.5pt',  lh: '1.25', gapA: '3px',   gapB: '5px', secGap: '6px' },
+    { font: '9.25pt', lh: '1.22', gapA: '2.5px', gapB: '4px', secGap: '5px' },
+    { font: '9.0pt',  lh: '1.20', gapA: '2px',   gapB: '3px', secGap: '4px' },
+    { font: '8.75pt', lh: '1.18', gapA: '1px',   gapB: '2px', secGap: '3px' },
+    { font: '8.5pt',  lh: '1.16', gapA: '0.5px', gapB: '1px', secGap: '2px' },
+    { font: '8.0pt',  lh: '1.14', gapA: '0px',   gapB: '0px', secGap: '2px' }
   ];
 
   let selectedConfig = null;
 
   // First pass: try to fit ALL questions onto 1 single page without breaking to Page 2
   for (let cfg of configurations) {
-    applySpacingValues(cfg.font, cfg.lh, cfg.gap, cfg.secGap, false);
+    applySpacingValues(cfg.font, cfg.lh, cfg.gapA, cfg.gapB, cfg.secGap, false);
     const pag = calculateDynamicPagination();
     renderPreview();
 
@@ -1015,7 +1087,7 @@ window.autoFillPageHeight = function() {
   // Second pass: if the paper is too long to fit on 1 page even at compact settings, find best 2-page fit
   if (!selectedConfig) {
     for (let cfg of configurations) {
-      applySpacingValues(cfg.font, cfg.lh, cfg.gap, cfg.secGap, false);
+      applySpacingValues(cfg.font, cfg.lh, cfg.gapA, cfg.gapB, cfg.secGap, false);
       const pag = calculateDynamicPagination();
       renderPreview();
 
@@ -1040,9 +1112,64 @@ window.autoFillPageHeight = function() {
     selectedConfig = configurations[configurations.length - 1];
   }
 
-  applySpacingValues(selectedConfig.font, selectedConfig.lh, selectedConfig.gap, selectedConfig.secGap, true);
+  applySpacingValues(selectedConfig.font, selectedConfig.lh, selectedConfig.gapA, selectedConfig.gapB, selectedConfig.secGap, true);
   updateDtpToolbarUI();
   renderPreview();
+};
+
+// Reset to clean empty paper for uploading/typing a new paper
+window.resetToEmptyPaper = function() {
+  if (!confirm('Are you sure you want to reset this question paper to an empty template?\n\nThis will clear all questions, subject name, and exam details so you can upload or enter a fresh paper.')) {
+    return;
+  }
+
+  currentPaper = {
+    paperCode: '',
+    collegeName: "ST. ANN'S COLLEGE FOR WOMEN (AUTONOMOUS)",
+    collegeAddress: "MALKAPURAM, VISAKHAPATNAM - 530011",
+    examDetails: '',
+    subjectTitle: '',
+    streamDetails: '',
+    timeStr: 'Time:3Hrs',
+    maxMarksStr: 'Max Marks:60',
+    sectionA: {
+      title: 'SECTION - A',
+      instruction: 'I. Answer any Five questions.',
+      marks: '5x4=20',
+      questions: ['', '', '', '', '', '', '', '']
+    },
+    sectionB: {
+      title: 'SECTION - B',
+      instruction: 'II. Answer ALL the following questions.',
+      marks: '5x8=40',
+      questions: [
+        { num: 9, a: '', choice: 'Or', b: '' },
+        { num: 10, a: '', choice: 'Or', b: '' },
+        { num: 11, a: '', choice: 'Or', b: '' },
+        { num: 12, a: '', choice: 'Or', b: '' },
+        { num: 13, a: '', choice: 'Or', b: '' }
+      ]
+    }
+  };
+
+  persistState();
+  renderForm();
+  applySpacingValues('9.5pt', '1.25', '3px', '6px', '6px', true);
+  updateDtpToolbarUI();
+  renderPreview();
+
+  // Clear modal inputs if open
+  const rawTextInp = document.getElementById('inp-import-raw-text');
+  if (rawTextInp) rawTextInp.value = '';
+  const fileInp = document.getElementById('inp-import-file');
+  if (fileInp) fileInp.value = '';
+  const statusMsg = document.getElementById('import-status-msg');
+  if (statusMsg) {
+    statusMsg.style.display = 'block';
+    statusMsg.style.color = '#059669';
+    statusMsg.textContent = '✓ Paper emptied and ready for new upload!';
+    setTimeout(() => { statusMsg.style.display = 'none'; }, 2500);
+  }
 };
 
 // Backwards compatibility alias
@@ -1108,6 +1235,10 @@ window.saveDraft = function() {
     layoutMode: currentLayoutMode,
     flowMode: pageFlowMode,
     baseFontSize,
+    lineHeight,
+    secAGap,
+    secBGap,
+    sectionGap,
     questionGap,
     autoSpreadSpace
   };
@@ -1136,6 +1267,17 @@ window.loadDraft = function(event) {
           pageFlowMode = data.flowMode;
           const selFlow = document.getElementById('sel-page-flow');
           if (selFlow) selFlow.value = pageFlowMode;
+        }
+        if (data.secAGap || data.secBGap || data.baseFontSize) {
+          applySpacingValues(
+            data.baseFontSize || baseFontSize,
+            data.lineHeight || lineHeight,
+            data.secAGap || data.questionGap || secAGap,
+            data.secBGap || secBGap,
+            data.sectionGap || sectionGap,
+            true
+          );
+          updateDtpToolbarUI();
         }
       } else {
         currentPaper = data;

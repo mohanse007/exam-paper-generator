@@ -66,6 +66,11 @@
 
       <span style="border-left:1px solid #475569; height:18px; margin:0 3px;"></span>
 
+      <!-- Reset to Empty Paper -->
+      <button class="btn btn-danger" onclick="resetToEmptyPaper()" title="Clear all questions and start a fresh empty paper">
+        🗑️ Reset to Empty
+      </button>
+
       <!-- Auto Import Paper (Word .docx / Text) -->
       <button class="btn btn-primary" onclick="openImportModal()" title="Upload Word document (.docx) or Text to auto-fill questions and tables">
         📤 Import Paper
@@ -158,6 +163,17 @@
           </div>
 
           <hr style="margin:10px 0; border:none; border-top:1px solid #e2e8f0;">
+          <div class="helper-box" style="margin-bottom:10px; background:#f0fdf4; border-color:#bbf7d0;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:700; color:#166534; font-size:12px;">↔️ Section A Gap / Spacing:</span>
+              <span class="dtp-val" id="val-sidebar-sec-a-gap">3px</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
+              <button type="button" class="dtp-nudge-btn" onclick="nudgeSecAGap(-1)">−</button>
+              <input type="range" id="slider-sidebar-sec-a-gap" min="0" max="18" step="1" value="3" style="flex:1;" oninput="onSecAGapSlider(this.value)">
+              <button type="button" class="dtp-nudge-btn" onclick="nudgeSecAGap(1)">+</button>
+            </div>
+          </div>
           <h4 style="font-size:12px; margin-bottom:8px; color:#475569;">8 Short Questions:</h4>
           <div id="sec-a-questions"></div>
         </div>
@@ -181,6 +197,17 @@
           </div>
 
           <hr style="margin:10px 0; border:none; border-top:1px solid #e2e8f0;">
+          <div class="helper-box" style="margin-bottom:10px; background:#fefce8; border-color:#fef08a;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:700; color:#854d0e; font-size:12px;">↔️ Section B Gap / Spacing:</span>
+              <span class="dtp-val" id="val-sidebar-sec-b-gap">6px</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
+              <button type="button" class="dtp-nudge-btn" onclick="nudgeSecBGap(-1)">−</button>
+              <input type="range" id="slider-sidebar-sec-b-gap" min="0" max="22" step="1" value="6" style="flex:1;" oninput="onSecBGapSlider(this.value)">
+              <button type="button" class="dtp-nudge-btn" onclick="nudgeSecBGap(1)">+</button>
+            </div>
+          </div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <h4 style="font-size:12px; color:#475569;">5 Compulsory Choice Questions:</h4>
             <span style="font-size:11px; color:#64748b;">(Distribution adjusts automatically)</span>
@@ -221,6 +248,12 @@
               <span class="chip-btn" onclick="insertSnippet('(or)')">(or)</span>
               <span class="chip-btn" onclick="insertSnippet('Or')">Or</span>
             </div>
+          </div>
+
+          <div class="helper-box" style="background:#fef2f2; border-color:#fecaca;">
+            <h4 style="color:#b91c1c;">Reset Question Paper</h4>
+            <p style="margin-bottom:8px; color:#450a0a;">Clears all questions, subject, and marks to start fresh for a new paper:</p>
+            <button type="button" class="btn btn-danger" style="font-size:11.5px; padding:4px 10px;" onclick="resetToEmptyPaper()">🗑️ Clear All to Empty</button>
           </div>
         </div>
       </div>
@@ -300,11 +333,21 @@
         <span class="dtp-divider"></span>
 
         <div class="dtp-group">
-          <span class="dtp-label">↔️ Question Gap:</span>
-          <button type="button" class="dtp-nudge-btn" onclick="nudgeQuestionGap(-1)" title="Decrease gap between questions">−</button>
-          <input type="range" id="slider-question-gap" min="0" max="18" step="1" value="3" oninput="onQuestionGapSlider(this.value)">
-          <button type="button" class="dtp-nudge-btn" onclick="nudgeQuestionGap(1)" title="Increase gap between questions">+</button>
-          <span class="dtp-val" id="val-question-gap">3px</span>
+          <span class="dtp-label" style="color:#6ee7b7;">↔️ Sec A:</span>
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeSecAGap(-1)" title="Decrease Section A questions gap">−</button>
+          <input type="range" id="slider-sec-a-gap" min="0" max="18" step="1" value="3" oninput="onSecAGapSlider(this.value)">
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeSecAGap(1)" title="Increase Section A questions gap">+</button>
+          <span class="dtp-val" id="val-sec-a-gap">3px</span>
+        </div>
+
+        <span class="dtp-divider"></span>
+
+        <div class="dtp-group">
+          <span class="dtp-label" style="color:#fde047;">↔️ Sec B:</span>
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeSecBGap(-1)" title="Decrease Section B questions gap">−</button>
+          <input type="range" id="slider-sec-b-gap" min="0" max="22" step="1" value="6" oninput="onSecBGapSlider(this.value)">
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeSecBGap(1)" title="Increase Section B questions gap">+</button>
+          <span class="dtp-val" id="val-sec-b-gap">6px</span>
         </div>
 
         <span class="dtp-divider"></span>
@@ -469,16 +512,21 @@ b) Alternative question..." style="width:100%; font-family:monospace; font-size:
         <div id="import-status-msg" style="margin-top:8px; font-size:12px; display:none;"></div>
       </div>
 
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
-        <button class="btn btn-primary" style="font-size:13px; padding:6px 14px;" onclick="processTextImport()">
-          ⚡ Parse Text & Fill Paper
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" class="btn btn-danger" onclick="resetToEmptyPaper()" style="font-size:11.5px; padding:5px 11px;">
+          🗑️ Clear to Empty First
         </button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+          <button class="btn btn-primary" style="font-size:13px; padding:6px 14px;" onclick="processTextImport()">
+            ⚡ Parse Text & Fill Paper
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="templates.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="templates.js?v=7"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
