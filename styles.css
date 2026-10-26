@@ -777,27 +777,32 @@ body {
 /* Choice Questions (Section B) */
 .choice-q {
   margin-bottom: 0;
-  font-size: var(--base-paper-font);
+  font-size: var(--sec-b-font, var(--base-paper-font));
   line-height: var(--line-height);
 }
 
 .choice-part-row {
   display: flex;
   align-items: flex-start;
+  margin-bottom: calc(var(--sec-b-gap, 6px) * 0.15);
 }
 
 .choice-part-num {
-  width: 34px;
+  min-width: 38px;
+  width: auto;
+  white-space: nowrap;
   flex-shrink: 0;
   font-weight: 700;
+  margin-right: 2px;
 }
 
 .mode-full-a4 .choice-part-num {
-  width: 42px;
+  min-width: 44px;
 }
 
 .choice-sub-num {
-  width: 34px;
+  min-width: 38px;
+  width: auto;
   flex-shrink: 0;
   font-weight: 700;
   text-align: right;
@@ -805,14 +810,18 @@ body {
 }
 
 .mode-full-a4 .choice-sub-num {
-  width: 42px;
+  min-width: 44px;
 }
 
 .choice-label {
   text-align: center;
   font-weight: 600;
-  font-size: calc(var(--base-paper-font) - 0.5pt);
-  margin: 1px 0;
+  font-size: calc(var(--sec-b-font, var(--base-paper-font)) - 0.5pt);
+  margin: calc(var(--sec-b-gap, 6px) * 0.45) 0;
+}
+
+.section-b-wrap {
+  margin-top: calc(var(--section-gap, 6px) + var(--sec-b-gap, 6px) * 0.2);
 }
 
 .end-asterisks {

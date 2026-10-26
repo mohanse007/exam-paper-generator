@@ -3,6 +3,8 @@ let currentPaper = JSON.parse(JSON.stringify(TEMPLATES.commerce));
 let currentLayoutMode = '2up'; // '2up' or 'full-a4'
 let pageFlowMode = 'auto'; // 'auto' (fill p1 first), 'balance', or manual question number '9','10','11','12'
 let baseFontSize = '9.5pt';
+let secAFont = '9.5pt';
+let secBFont = '9.5pt';
 let lineHeight = '1.25';
 let questionGap = '3px';
 let secAGap = '3px';
@@ -62,7 +64,15 @@ try {
   const savedFlow = localStorage.getItem('exam_page_flow');
   if (savedFlow) pageFlowMode = savedFlow;
   const savedFont = localStorage.getItem('exam_base_font');
-  if (savedFont) baseFontSize = savedFont;
+  if (savedFont) {
+    baseFontSize = savedFont;
+    secAFont = savedFont;
+    secBFont = savedFont;
+  }
+  const savedSecAFont = localStorage.getItem('exam_sec_a_font');
+  if (savedSecAFont) secAFont = savedSecAFont;
+  const savedSecBFont = localStorage.getItem('exam_sec_b_font');
+  if (savedSecBFont) secBFont = savedSecBFont;
   const savedLh = localStorage.getItem('exam_line_height');
   if (savedLh) lineHeight = savedLh;
   const savedGap = localStorage.getItem('exam_question_gap');
@@ -455,8 +465,8 @@ function calculateDynamicPagination() {
 
   // Set up measuring container with active mode width and classes
   const is2Up = currentLayoutMode === '2up';
-  // Available height: in 2-Up (210mm total - padding), approx 730px; in Full A4 (297mm - padding), approx 1040px
-  const maxPageHeight = is2Up ? 740 : 1045;
+  // Available height: in 2-Up (210mm total - padding), approx 785px; in Full A4 (297mm - padding), approx 1060px
+  const maxPageHeight = is2Up ? 785 : 1060;
   const colWidth = is2Up ? '135mm' : '180mm';
 
   measureContainer.className = is2Up ? 'exam-page mode-2up' : 'exam-page mode-full-a4';
@@ -510,7 +520,7 @@ function calculateDynamicPagination() {
   const baseFixedH = (mHeader ? mHeader.offsetHeight : 160) + 
                      (mSecA ? mSecA.offsetHeight : 200) + 
                      (mSecBHeader ? mSecBHeader.offsetHeight : 35) + 
-                     30; // padding/margins buffer
+                     12; // padding/margins buffer
 
   let currentP1Height = baseFixedH;
   const p1Questions = [];
@@ -887,8 +897,9 @@ function applySpacingValues(font, lh, gapA, gapB, secGap, persist = true) {
   sectionGap = secGap || sectionGap;
 
   document.documentElement.style.setProperty('--base-paper-font', baseFontSize);
+  document.documentElement.style.setProperty('--sec-a-font', secAFont || baseFontSize);
+  document.documentElement.style.setProperty('--sec-b-font', secBFont || baseFontSize);
   document.documentElement.style.setProperty('--line-height', lineHeight);
-  document.documentElement.style.setProperty('--question-gap', secAGap);
   document.documentElement.style.setProperty('--sec-a-gap', secAGap);
   document.documentElement.style.setProperty('--sec-b-gap', secBGap);
   document.documentElement.style.setProperty('--section-gap', sectionGap);
@@ -896,6 +907,8 @@ function applySpacingValues(font, lh, gapA, gapB, secGap, persist = true) {
   if (persist) {
     try {
       localStorage.setItem('exam_base_font', baseFontSize);
+      localStorage.setItem('exam_sec_a_font', secAFont);
+      localStorage.setItem('exam_sec_b_font', secBFont);
       localStorage.setItem('exam_line_height', lineHeight);
       localStorage.setItem('exam_sec_a_gap', secAGap);
       localStorage.setItem('exam_sec_b_gap', secBGap);
@@ -911,6 +924,8 @@ function updateDtpToolbarUI() {
   const gapANum = parseInt(secAGap, 10) || 3;
   const gapBNum = parseInt(secBGap, 10) || 6;
   const secGapNum = parseInt(sectionGap, 10) || 6;
+  const secAFNum = parseFloat(secAFont) || fNum;
+  const secBFNum = parseFloat(secBFont) || fNum;
 
   const slFont = document.getElementById('slider-font-size');
   if (slFont) slFont.value = fNum;
@@ -922,7 +937,7 @@ function updateDtpToolbarUI() {
   const valLh = document.getElementById('val-line-height');
   if (valLh) valLh.textContent = lhNum.toFixed(2);
 
-  // Section A Gap (Toolbar & Sidebar)
+  // Section A Gap & Font (Toolbar & Sidebar)
   const slGapA = document.getElementById('slider-sec-a-gap');
   if (slGapA) slGapA.value = gapANum;
   const valGapA = document.getElementById('val-sec-a-gap');
@@ -933,7 +948,12 @@ function updateDtpToolbarUI() {
   const valSideGapA = document.getElementById('val-sidebar-sec-a-gap');
   if (valSideGapA) valSideGapA.textContent = secAGap;
 
-  // Section B Gap (Toolbar & Sidebar)
+  const slSideFontA = document.getElementById('slider-sidebar-sec-a-font');
+  if (slSideFontA) slSideFontA.value = secAFNum;
+  const valSideFontA = document.getElementById('val-sidebar-sec-a-font');
+  if (valSideFontA) valSideFontA.textContent = secAFont;
+
+  // Section B Gap & Font (Toolbar & Sidebar)
   const slGapB = document.getElementById('slider-sec-b-gap');
   if (slGapB) slGapB.value = gapBNum;
   const valGapB = document.getElementById('val-sec-b-gap');
@@ -943,6 +963,11 @@ function updateDtpToolbarUI() {
   if (slSideGapB) slSideGapB.value = gapBNum;
   const valSideGapB = document.getElementById('val-sidebar-sec-b-gap');
   if (valSideGapB) valSideGapB.textContent = secBGap;
+
+  const slSideFontB = document.getElementById('slider-sidebar-sec-b-font');
+  if (slSideFontB) slSideFontB.value = secBFNum;
+  const valSideFontB = document.getElementById('val-sidebar-sec-b-font');
+  if (valSideFontB) valSideFontB.textContent = secBFont;
 
   // Section Gap
   const slSecGap = document.getElementById('slider-section-gap');
@@ -955,6 +980,17 @@ window.nudgeFontSize = function(delta) {
   let cur = parseFloat(baseFontSize) || 9.5;
   cur = Math.min(12.0, Math.max(7.5, Math.round((cur + delta) * 100) / 100));
   baseFontSize = cur + 'pt';
+  secAFont = baseFontSize;
+  secBFont = baseFontSize;
+  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+window.onFontSizeSlider = function(val) {
+  baseFontSize = val + 'pt';
+  secAFont = baseFontSize;
+  secBFont = baseFontSize;
   applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
   updateDtpToolbarUI();
   renderPreview();
@@ -971,7 +1007,7 @@ window.nudgeLineHeight = function(delta) {
 
 window.nudgeSecAGap = function(delta) {
   let cur = parseInt(secAGap, 10) || 3;
-  cur = Math.min(18, Math.max(0, cur + delta));
+  cur = Math.min(24, Math.max(0, cur + delta));
   secAGap = cur + 'px';
   applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
   updateDtpToolbarUI();
@@ -985,9 +1021,27 @@ window.onSecAGapSlider = function(val) {
   renderPreview();
 };
 
+window.nudgeSecAFont = function(delta) {
+  let cur = parseFloat(secAFont) || parseFloat(baseFontSize) || 9.5;
+  cur = Math.min(13.0, Math.max(7.5, Math.round((cur + delta) * 100) / 100));
+  secAFont = cur + 'pt';
+  document.documentElement.style.setProperty('--sec-a-font', secAFont);
+  try { localStorage.setItem('exam_sec_a_font', secAFont); } catch(e){}
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+window.onSecAFontSlider = function(val) {
+  secAFont = val + 'pt';
+  document.documentElement.style.setProperty('--sec-a-font', secAFont);
+  try { localStorage.setItem('exam_sec_a_font', secAFont); } catch(e){}
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
 window.nudgeSecBGap = function(delta) {
   let cur = parseInt(secBGap, 10) || 6;
-  cur = Math.min(22, Math.max(0, cur + delta));
+  cur = Math.min(36, Math.max(0, cur + delta));
   secBGap = cur + 'px';
   applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
   updateDtpToolbarUI();
@@ -1001,6 +1055,24 @@ window.onSecBGapSlider = function(val) {
   renderPreview();
 };
 
+window.nudgeSecBFont = function(delta) {
+  let cur = parseFloat(secBFont) || parseFloat(baseFontSize) || 9.5;
+  cur = Math.min(13.0, Math.max(7.5, Math.round((cur + delta) * 100) / 100));
+  secBFont = cur + 'pt';
+  document.documentElement.style.setProperty('--sec-b-font', secBFont);
+  try { localStorage.setItem('exam_sec_b_font', secBFont); } catch(e){}
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+window.onSecBFontSlider = function(val) {
+  secBFont = val + 'pt';
+  document.documentElement.style.setProperty('--sec-b-font', secBFont);
+  try { localStorage.setItem('exam_sec_b_font', secBFont); } catch(e){}
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
 // Backwards compatibility for question gap
 window.nudgeQuestionGap = function(delta) {
   window.nudgeSecAGap(delta);
@@ -1009,14 +1081,6 @@ window.nudgeQuestionGap = function(delta) {
 window.onQuestionGapSlider = function(val) {
   window.onSecAGapSlider(val);
   window.onSecBGapSlider(val);
-};
-
-window.onFontSizeSlider = function(val) {
-  baseFontSize = val + 'pt';
-  applySpacingValues(baseFontSize, lineHeight, secAGap, secBGap, sectionGap, true);
-  const valFont = document.getElementById('val-font-size');
-  if (valFont) valFont.textContent = baseFontSize;
-  renderPreview();
 };
 
 window.onLineHeightSlider = function(val) {
@@ -1038,12 +1102,18 @@ window.onSectionGapSlider = function(val) {
 window.applyPreset = function(presetName) {
   if (presetName === 'full') {
     // For short papers: larger font and generous spacing to eliminate empty bottom gap
-    applySpacingValues('10.5pt', '1.35', '5px', '8px', '10px', true);
+    secAFont = '10.5pt';
+    secBFont = '10.5pt';
+    applySpacingValues('10.5pt', '1.35', '5px', '20px', '12px', true);
   } else if (presetName === 'standard') {
     // Standard balanced spacing
+    secAFont = '9.5pt';
+    secBFont = '9.5pt';
     applySpacingValues('9.5pt', '1.25', '3px', '6px', '6px', true);
   } else if (presetName === 'compact') {
     // For long papers with tables: compact
+    secAFont = '8.5pt';
+    secBFont = '8.5pt';
     applySpacingValues('8.5pt', '1.16', '1px', '3px', '3px', true);
   }
   updateDtpToolbarUI();
@@ -1053,15 +1123,15 @@ window.applyPreset = function(presetName) {
 // Smart Auto-Fit: Automatically calculates the best font size & spacing to fill 92-99% of page cleanly
 window.autoFillPageHeight = function() {
   const configurations = [
-    { font: '10.5pt', lh: '1.35', gapA: '5px',   gapB: '8px', secGap: '10px' },
-    { font: '10.0pt', lh: '1.32', gapA: '4px',   gapB: '7px', secGap: '9px' },
-    { font: '9.75pt', lh: '1.28', gapA: '3.5px', gapB: '6px', secGap: '8px' },
-    { font: '9.5pt',  lh: '1.25', gapA: '3px',   gapB: '5px', secGap: '6px' },
-    { font: '9.25pt', lh: '1.22', gapA: '2.5px', gapB: '4px', secGap: '5px' },
-    { font: '9.0pt',  lh: '1.20', gapA: '2px',   gapB: '3px', secGap: '4px' },
-    { font: '8.75pt', lh: '1.18', gapA: '1px',   gapB: '2px', secGap: '3px' },
-    { font: '8.5pt',  lh: '1.16', gapA: '0.5px', gapB: '1px', secGap: '2px' },
-    { font: '8.0pt',  lh: '1.14', gapA: '0px',   gapB: '0px', secGap: '2px' }
+    { font: '10.5pt', lh: '1.35', gapA: '5px',   gapB: '22px', secGap: '12px' },
+    { font: '10.0pt', lh: '1.32', gapA: '4px',   gapB: '18px', secGap: '10px' },
+    { font: '9.75pt', lh: '1.28', gapA: '3.5px', gapB: '14px', secGap: '8px' },
+    { font: '9.5pt',  lh: '1.25', gapA: '3px',   gapB: '10px', secGap: '6px' },
+    { font: '9.25pt', lh: '1.22', gapA: '2.5px', gapB: '6px',  secGap: '5px' },
+    { font: '9.0pt',  lh: '1.20', gapA: '2px',   gapB: '4px',  secGap: '4px' },
+    { font: '8.75pt', lh: '1.18', gapA: '1px',   gapB: '3px',  secGap: '3px' },
+    { font: '8.5pt',  lh: '1.16', gapA: '0.5px', gapB: '2px',  secGap: '2px' },
+    { font: '8.0pt',  lh: '1.14', gapA: '0px',   gapB: '1px',  secGap: '2px' }
   ];
 
   let selectedConfig = null;
@@ -1153,6 +1223,12 @@ window.resetToEmptyPaper = function() {
     }
   };
 
+  secAFont = '9.5pt';
+  secBFont = '9.5pt';
+  try {
+    localStorage.removeItem('exam_sec_a_font');
+    localStorage.removeItem('exam_sec_b_font');
+  } catch(e){}
   persistState();
   renderForm();
   applySpacingValues('9.5pt', '1.25', '3px', '6px', '6px', true);
