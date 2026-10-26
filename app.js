@@ -472,7 +472,7 @@ function calculateDynamicPagination() {
             <span class="instruction-marks">${escapeHtml(currentPaper.sectionB.marks || '')}</span>
           </div>
         </div>
-        <div id="m-questions" class="questions-list sec-b-list">
+        <div id="m-questions" class="questions-list sec-b-list" style="gap: var(--sec-b-gap) !important;">
           ${allSecB.map(q => {
             if (q.b && q.b.trim()) {
               return `
@@ -515,20 +515,21 @@ function calculateDynamicPagination() {
   let currentP1Height = baseFixedH;
   const p1Questions = [];
   const p2Questions = [];
+  const bGapNum = parseInt(secBGap, 10) || 6;
 
   if (pageFlowMode === 'balance') {
     // Balanced mode: distribute questions so both pages have roughly equal height
     let totalSecBH = 0;
     allSecB.forEach(q => {
       const qEl = measureContainer.querySelector(`#m-q-${q.num}`);
-      totalSecBH += (qEl ? qEl.offsetHeight : 60);
+      totalSecBH += (qEl ? qEl.offsetHeight + bGapNum : 60);
     });
 
     // Target half of Sec B questions on P1
     let accumulated = 0;
     allSecB.forEach(q => {
       const qEl = measureContainer.querySelector(`#m-q-${q.num}`);
-      const h = (qEl ? qEl.offsetHeight : 60);
+      const h = (qEl ? qEl.offsetHeight + bGapNum : 60);
       if (accumulated + h <= totalSecBH / 2 && currentP1Height + h <= maxPageHeight) {
         p1Questions.push(q);
         accumulated += h;
@@ -541,7 +542,7 @@ function calculateDynamicPagination() {
     // 'auto' mode: Fill Page 1 first until full, only overflow to Page 2
     allSecB.forEach(q => {
       const qEl = measureContainer.querySelector(`#m-q-${q.num}`);
-      const qHeight = qEl ? qEl.offsetHeight + 6 : 60;
+      const qHeight = qEl ? qEl.offsetHeight + bGapNum : 60;
 
       // Check if this question fits on Page 1
       if (currentP1Height + qHeight <= maxPageHeight) {
@@ -629,7 +630,7 @@ function generateSectionAHTML() {
         <span>${escapeHtml(p.sectionA.instruction || '')}</span>
         <span class="instruction-marks">${escapeHtml(p.sectionA.marks || '')}</span>
       </div>
-      <div class="questions-list sec-a-list">
+      <div class="questions-list sec-a-list" style="gap: var(--sec-a-gap) !important;">
         ${qHtml}
       </div>
     </div>
@@ -679,7 +680,7 @@ function generateSecBGroupHTML(questions, showHeader = false) {
   return `
     <div class="section-b-wrap">
       ${secBHtml}
-      <div class="questions-list sec-b-list">
+      <div class="questions-list sec-b-list" style="gap: var(--sec-b-gap) !important;">
         ${qItems}
       </div>
     </div>

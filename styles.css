@@ -714,28 +714,37 @@ body {
 }
 
 /* Section A Specific Spacing & Typography */
-.section-a-wrap .sec-a-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sec-a-gap, 3px);
+.sec-a-list,
+.section-a-wrap .sec-a-list,
+.page-content-wrapper .sec-a-list,
+.page-content-wrapper.spread-vertical .sec-a-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: var(--sec-a-gap, 3px) !important;
 }
 
-.section-a-wrap .q-item {
+.section-a-wrap .q-item,
+.sec-a-list .q-item {
   font-size: var(--sec-a-font, var(--base-paper-font));
-  margin-bottom: 0;
+  margin-bottom: 0 !important;
 }
 
 /* Section B Specific Spacing & Typography */
-.section-b-wrap .sec-b-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sec-b-gap, 6px);
+.sec-b-list,
+.section-b-wrap .sec-b-list,
+.page-content-wrapper .sec-b-list,
+.page-content-wrapper.spread-vertical .sec-b-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: var(--sec-b-gap, 6px) !important;
 }
 
 .section-b-wrap .choice-q,
-.section-b-wrap .q-item {
+.section-b-wrap .q-item,
+.sec-b-list .choice-q,
+.sec-b-list .q-item {
   font-size: var(--sec-b-font, var(--base-paper-font));
-  margin-bottom: 0;
+  margin-bottom: 0 !important;
 }
 
 .q-item {
@@ -767,7 +776,7 @@ body {
 
 /* Choice Questions (Section B) */
 .choice-q {
-  margin-bottom: var(--question-gap);
+  margin-bottom: 0;
   font-size: var(--base-paper-font);
   line-height: var(--line-height);
 }
@@ -840,7 +849,6 @@ body {
 .page-content-wrapper.spread-vertical .questions-list {
   display: flex;
   flex-direction: column;
-  gap: var(--question-gap);
 }
 
 .page-content-wrapper.spread-vertical.distribute-evenly .questions-list {
