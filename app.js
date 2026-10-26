@@ -2,8 +2,10 @@
 let currentPaper = JSON.parse(JSON.stringify(TEMPLATES.commerce));
 let currentLayoutMode = '2up'; // '2up' or 'full-a4'
 let pageFlowMode = 'auto'; // 'auto' (fill p1 first), 'balance', or manual question number '9','10','11','12'
-let baseFontSize = '9pt';
-let questionGap = '2px';
+let baseFontSize = '9.5pt';
+let lineHeight = '1.25';
+let questionGap = '3px';
+let sectionGap = '6px';
 let autoSpreadSpace = true; // spreads vertical spacing to avoid bottom gaps
 let showCutLine = false;
 
@@ -57,6 +59,14 @@ try {
   if (savedMode) currentLayoutMode = savedMode;
   const savedFlow = localStorage.getItem('exam_page_flow');
   if (savedFlow) pageFlowMode = savedFlow;
+  const savedFont = localStorage.getItem('exam_base_font');
+  if (savedFont) baseFontSize = savedFont;
+  const savedLh = localStorage.getItem('exam_line_height');
+  if (savedLh) lineHeight = savedLh;
+  const savedGap = localStorage.getItem('exam_question_gap');
+  if (savedGap) questionGap = savedGap;
+  const savedSecGap = localStorage.getItem('exam_section_gap');
+  if (savedSecGap) sectionGap = savedSecGap;
 } catch (e) {}
 
 // Elements
@@ -78,6 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
   bindFormInputs();
   renderForm();
   updateLayoutModeUI();
+  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, false);
+  updateDtpToolbarUI();
   renderPreview();
   setupZoom();
 });
@@ -447,7 +459,7 @@ function calculateDynamicPagination() {
       <div id="m-header">${generateHeaderHTML()}</div>
       <div id="m-sec-a">${generateSectionAHTML()}</div>
       <div id="m-sec-b-header">
-        <div class="section-header" style="margin-top:2px;">${escapeHtml(currentPaper.sectionB.title || 'SECTION - B')}</div>
+        <div class="section-header">${escapeHtml(currentPaper.sectionB.title || 'SECTION - B')}</div>
         <div class="instruction-row">
           <span>${escapeHtml(currentPaper.sectionB.instruction || '')}</span>
           <span class="instruction-marks">${escapeHtml(currentPaper.sectionB.marks || '')}</span>
@@ -620,7 +632,7 @@ function generateSecBGroupHTML(questions, showHeader = false) {
   let secBHtml = '';
   if (showHeader) {
     secBHtml += `
-      <div class="section-header" style="margin-top:2px;">${escapeHtml(p.sectionB.title || 'SECTION - B')}</div>
+      <div class="section-header">${escapeHtml(p.sectionB.title || 'SECTION - B')}</div>
       <div class="instruction-row">
         <span>${escapeHtml(p.sectionB.instruction || '')}</span>
         <span class="instruction-marks">${escapeHtml(p.sectionB.marks || '')}</span>
@@ -839,45 +851,202 @@ function checkPageOverflow(totalPages) {
   }
 }
 
-// Smart Auto-Fit: Automatically adjusts font size & spacing to fit 2 pages
-window.autoFitToTwoPages = function() {
-  const fontSizes = ['10pt', '9.5pt', '9pt', '8.5pt', '8pt'];
-  const gaps = ['3px', '2px', '1.5px', '1px'];
-  const lineHeights = ['1.25', '1.22', '1.18', '1.15'];
+// ===================================================
+// CANVA / PHOTOSHOP STYLE DTP SPACING & TYPOGRAPHY
+// ===================================================
 
-  for (let f of fontSizes) {
-    for (let g of gaps) {
-      for (let lh of lineHeights) {
-        document.documentElement.style.setProperty('--base-paper-font', f);
-        document.documentElement.style.setProperty('--question-gap', g);
-        document.documentElement.style.setProperty('--line-height', lh);
-        baseFontSize = f;
-        questionGap = g;
+function applySpacingValues(font, lh, gap, secGap, persist = true) {
+  baseFontSize = font;
+  lineHeight = lh;
+  questionGap = gap;
+  sectionGap = secGap;
 
-        const p1 = previewPage1.querySelector('.paper-half') || previewPage1.querySelector('.paper-full');
-        const p2 = previewPage2.querySelector('.paper-half') || previewPage2.querySelector('.paper-full');
+  document.documentElement.style.setProperty('--base-paper-font', baseFontSize);
+  document.documentElement.style.setProperty('--line-height', lineHeight);
+  document.documentElement.style.setProperty('--question-gap', questionGap);
+  document.documentElement.style.setProperty('--section-gap', sectionGap);
 
-        if (p1 && p1.scrollHeight <= p1.clientHeight && (!p2 || previewPage2.style.display === 'none' || p2.scrollHeight <= p2.clientHeight)) {
-          const selFontSize = document.getElementById('sel-font-size');
-          if (selFontSize) selFontSize.value = f;
-          const selGap = document.getElementById('sel-question-gap');
-          if (selGap) selGap.value = g;
-          checkPageOverflow(previewPage2.style.display === 'none' ? 1 : 2);
-          alert(`Auto-Fit Success: Adjusted to Font ${f}, Gap ${g}! All questions fit cleanly!`);
-          return;
+  if (persist) {
+    try {
+      localStorage.setItem('exam_base_font', baseFontSize);
+      localStorage.setItem('exam_line_height', lineHeight);
+      localStorage.setItem('exam_question_gap', questionGap);
+      localStorage.setItem('exam_section_gap', sectionGap);
+    } catch (e) {}
+  }
+}
+
+function updateDtpToolbarUI() {
+  const fNum = parseFloat(baseFontSize) || 9.5;
+  const lhNum = parseFloat(lineHeight) || 1.25;
+  const gapNum = parseInt(questionGap, 10) || 3;
+  const secGapNum = parseInt(sectionGap, 10) || 6;
+
+  const slFont = document.getElementById('slider-font-size');
+  if (slFont) slFont.value = fNum;
+  const valFont = document.getElementById('val-font-size');
+  if (valFont) valFont.textContent = baseFontSize;
+
+  const slLh = document.getElementById('slider-line-height');
+  if (slLh) slLh.value = lhNum;
+  const valLh = document.getElementById('val-line-height');
+  if (valLh) valLh.textContent = lhNum.toFixed(2);
+
+  const slGap = document.getElementById('slider-question-gap');
+  if (slGap) slGap.value = gapNum;
+  const valGap = document.getElementById('val-question-gap');
+  if (valGap) valGap.textContent = questionGap;
+
+  const slSecGap = document.getElementById('slider-section-gap');
+  if (slSecGap) slSecGap.value = secGapNum;
+  const valSecGap = document.getElementById('val-section-gap');
+  if (valSecGap) valSecGap.textContent = sectionGap;
+}
+
+window.nudgeFontSize = function(delta) {
+  let cur = parseFloat(baseFontSize) || 9.5;
+  cur = Math.min(12.0, Math.max(7.5, Math.round((cur + delta) * 100) / 100));
+  baseFontSize = cur + 'pt';
+  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+window.nudgeLineHeight = function(delta) {
+  let cur = parseFloat(lineHeight) || 1.25;
+  cur = Math.min(1.65, Math.max(1.10, Math.round((cur + delta) * 100) / 100));
+  lineHeight = cur.toFixed(2);
+  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+window.nudgeQuestionGap = function(delta) {
+  let cur = parseInt(questionGap, 10) || 3;
+  cur = Math.min(18, Math.max(0, cur + delta));
+  questionGap = cur + 'px';
+  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+window.onFontSizeSlider = function(val) {
+  baseFontSize = val + 'pt';
+  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  const valFont = document.getElementById('val-font-size');
+  if (valFont) valFont.textContent = baseFontSize;
+  renderPreview();
+};
+
+window.onLineHeightSlider = function(val) {
+  lineHeight = parseFloat(val).toFixed(2);
+  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  const valLh = document.getElementById('val-line-height');
+  if (valLh) valLh.textContent = lineHeight;
+  renderPreview();
+};
+
+window.onQuestionGapSlider = function(val) {
+  questionGap = val + 'px';
+  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  const valGap = document.getElementById('val-question-gap');
+  if (valGap) valGap.textContent = questionGap;
+  renderPreview();
+};
+
+window.onSectionGapSlider = function(val) {
+  sectionGap = val + 'px';
+  applySpacingValues(baseFontSize, lineHeight, questionGap, sectionGap, true);
+  const valSecGap = document.getElementById('val-section-gap');
+  if (valSecGap) valSecGap.textContent = sectionGap;
+  renderPreview();
+};
+
+window.applyPreset = function(presetName) {
+  if (presetName === 'full') {
+    // For short papers: larger font and generous spacing to eliminate empty bottom gap
+    applySpacingValues('10.5pt', '1.35', '6px', '10px', true);
+  } else if (presetName === 'standard') {
+    // Standard balanced spacing
+    applySpacingValues('9.5pt', '1.25', '3px', '6px', true);
+  } else if (presetName === 'compact') {
+    // For long papers with tables: compact
+    applySpacingValues('8.5pt', '1.16', '1px', '3px', true);
+  }
+  updateDtpToolbarUI();
+  renderPreview();
+};
+
+// Smart Auto-Fit: Automatically calculates the best font size & spacing to fill 92-99% of page cleanly
+window.autoFillPageHeight = function() {
+  const configurations = [
+    { font: '10.5pt', lh: '1.35', gap: '6px',  secGap: '10px' },
+    { font: '10.0pt', lh: '1.32', gap: '5px',  secGap: '9px' },
+    { font: '9.75pt', lh: '1.28', gap: '4px',  secGap: '8px' },
+    { font: '9.5pt',  lh: '1.25', gap: '3px',  secGap: '6px' },
+    { font: '9.25pt', lh: '1.22', gap: '3px',  secGap: '5px' },
+    { font: '9.0pt',  lh: '1.20', gap: '2px',  secGap: '4px' },
+    { font: '8.75pt', lh: '1.18', gap: '1.5px',secGap: '3px' },
+    { font: '8.5pt',  lh: '1.16', gap: '1px',  secGap: '2px' },
+    { font: '8.0pt',  lh: '1.14', gap: '0px',  secGap: '2px' }
+  ];
+
+  let selectedConfig = null;
+
+  // First pass: try to fit ALL questions onto 1 single page without breaking to Page 2
+  for (let cfg of configurations) {
+    applySpacingValues(cfg.font, cfg.lh, cfg.gap, cfg.secGap, false);
+    const pag = calculateDynamicPagination();
+    renderPreview();
+
+    const p1 = previewPage1.querySelector('.paper-half') || previewPage1.querySelector('.paper-full');
+    if (p1 && pag.totalPages === 1) {
+      const scrollH = p1.scrollHeight;
+      const clientH = p1.clientHeight;
+      const fill = Math.round((scrollH / clientH) * 100);
+
+      if (fill <= 101) {
+        selectedConfig = cfg;
+        break; // Found the most spacious configuration that keeps the entire paper on 1 page!
+      }
+    }
+  }
+
+  // Second pass: if the paper is too long to fit on 1 page even at compact settings, find best 2-page fit
+  if (!selectedConfig) {
+    for (let cfg of configurations) {
+      applySpacingValues(cfg.font, cfg.lh, cfg.gap, cfg.secGap, false);
+      const pag = calculateDynamicPagination();
+      renderPreview();
+
+      const p1 = previewPage1.querySelector('.paper-half') || previewPage1.querySelector('.paper-full');
+      const p2 = previewPage2.querySelector('.paper-half') || previewPage2.querySelector('.paper-full');
+
+      if (p1) {
+        const p1Scroll = p1.scrollHeight;
+        const p1Client = p1.clientHeight;
+        const p2Scroll = p2 ? p2.scrollHeight : 0;
+        const p2Client = p2 ? p2.clientHeight : 1;
+
+        if (p1Scroll <= p1Client && (!p2 || previewPage2.style.display === 'none' || p2Scroll <= p2Client)) {
+          selectedConfig = cfg;
+          break;
         }
       }
     }
   }
 
-  document.documentElement.style.setProperty('--base-paper-font', '8pt');
-  document.documentElement.style.setProperty('--question-gap', '1px');
-  document.documentElement.style.setProperty('--line-height', '1.15');
-  baseFontSize = '8pt';
-  questionGap = '1px';
-  checkPageOverflow(2);
-  alert('Applied most compact settings.');
+  if (!selectedConfig) {
+    selectedConfig = configurations[configurations.length - 1];
+  }
+
+  applySpacingValues(selectedConfig.font, selectedConfig.lh, selectedConfig.gap, selectedConfig.secGap, true);
+  updateDtpToolbarUI();
+  renderPreview();
 };
+
+// Backwards compatibility alias
+window.autoFitToTwoPages = window.autoFillPageHeight;
 
 // Zoom control
 function setupZoom() {
@@ -1414,7 +1583,7 @@ function parseImportedHtmlOrText(content, isHtml) {
   extractExamStructure(docLines);
   persistState();
   renderForm();
-  renderPreview();
+  autoFillPageHeight();
 }
 
 function extractExamStructure(lines) {

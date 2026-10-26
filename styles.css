@@ -1,7 +1,10 @@
 :root {
-  --base-paper-font: 9pt;
-  --question-gap: 2px;
-  --line-height: 1.22;
+  --base-paper-font: 9.5pt;
+  --question-gap: 3px;
+  --section-gap: 6px;
+  --line-height: 1.25;
+  --letter-spacing: 0px;
+  --page-padding-y: 7mm;
 }
 
 /* Global Reset & App Layout */
@@ -380,6 +383,103 @@ body {
   color: #fecaca;
 }
 
+/* =================================================== */
+/* CANVA & PHOTOSHOP STYLE DTP FORMATTING TOOLBAR      */
+/* =================================================== */
+.dtp-toolbar {
+  background: #0f172a;
+  border-bottom: 1px solid #334155;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: #cbd5e1;
+  z-index: 5;
+}
+
+.dtp-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dtp-label {
+  font-weight: 600;
+  color: #38bdf8;
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+
+.dtp-val {
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+  min-width: 40px;
+  text-align: center;
+  background: #1e293b;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid #475569;
+}
+
+.dtp-nudge-btn {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid #475569;
+  border-radius: 3px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.dtp-nudge-btn:hover {
+  background: #334155;
+  color: #38bdf8;
+  border-color: #38bdf8;
+}
+
+.dtp-toolbar input[type="range"] {
+  width: 70px;
+  height: 4px;
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+.dtp-divider {
+  width: 1px;
+  height: 16px;
+  background: #334155;
+}
+
+.btn-preset {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-preset:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+
 .preview-scroll {
   flex: 1;
   overflow: auto;
@@ -416,12 +516,13 @@ body {
 .mode-2up .paper-half {
   width: 50%;
   height: 100%;
-  padding: 7mm 11mm 6mm 11mm;
+  padding: var(--page-padding-y, 7mm) 11mm var(--page-padding-y, 6mm) 11mm;
   display: flex;
   flex-direction: column;
   position: relative;
   font-size: var(--base-paper-font);
   line-height: var(--line-height);
+  letter-spacing: var(--letter-spacing, 0px);
 }
 
 .mode-2up .paper-half.left-half {
@@ -475,12 +576,13 @@ body {
 .mode-full-a4 .paper-full {
   width: 100%;
   height: 100%;
-  padding: 12mm 15mm 10mm 15mm;
+  padding: var(--page-padding-y, 12mm) 15mm var(--page-padding-y, 10mm) 15mm;
   display: flex;
   flex-direction: column;
   position: relative;
-  font-size: calc(var(--base-paper-font) + 1pt);
-  line-height: calc(var(--line-height) + 0.08);
+  font-size: calc(var(--base-paper-font) + 0.5pt);
+  line-height: calc(var(--line-height) + 0.05);
+  letter-spacing: var(--letter-spacing, 0px);
 }
 
 /* =================================================== */
@@ -575,8 +677,8 @@ body {
   font-size: calc(var(--base-paper-font) + 0.8pt);
   font-weight: 700;
   text-decoration: underline;
-  margin-top: 1px;
-  margin-bottom: 1px;
+  margin-top: var(--section-gap, 6px);
+  margin-bottom: 2px;
 }
 
 .instruction-row {
@@ -696,10 +798,19 @@ body {
   flex: 1;
 }
 
+.page-content-wrapper.spread-vertical.distribute-evenly .page-top-block {
+  justify-content: space-between;
+}
+
 .page-content-wrapper.spread-vertical .questions-list {
   display: flex;
   flex-direction: column;
   gap: var(--question-gap);
+}
+
+.page-content-wrapper.spread-vertical.distribute-evenly .questions-list {
+  flex: 1;
+  justify-content: space-between;
 }
 
 /* Tables in Questions */

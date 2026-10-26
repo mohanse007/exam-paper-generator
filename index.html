@@ -251,14 +251,9 @@
           </select>
 
           <!-- Spread Spacing Checkbox -->
-          <label style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:#e2e8f0; cursor:pointer;">
+          <label style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:#e2e8f0; cursor:pointer;" title="Evenly distribute vertical space across the page">
             <input type="checkbox" id="chk-spread-space" checked> Distribute Spacing
           </label>
-
-          <!-- Auto-Fit Button -->
-          <button class="btn btn-purple" style="font-size:11px; padding:3px 8px;" onclick="autoFitToTwoPages()" title="Automatically adjust font size and spacing so content fits cleanly">
-            ⚡ Auto-Fit
-          </button>
 
           <!-- Status badges -->
           <span class="badge-status badge-ok" id="page1-status-badge">P1: OK</span>
@@ -273,34 +268,75 @@
 
           <span style="border-left:1px solid #475569; height:14px;"></span>
 
-          <!-- Font Size Selector -->
-          <span style="font-size:11.5px;">Font:</span>
-          <select id="sel-font-size" style="background:#334155; color:#fff; border:1px solid #475569; border-radius:3px; padding:2px 4px; font-size:11.5px;">
-            <option value="8pt">8.0pt</option>
-            <option value="8.5pt">8.5pt</option>
-            <option value="9pt" selected>9.0pt</option>
-            <option value="9.5pt">9.5pt</option>
-            <option value="10pt">10.0pt</option>
-            <option value="10.5pt">10.5pt</option>
-          </select>
-
-          <!-- Spacing Selector -->
-          <span style="font-size:11.5px;">Gap:</span>
-          <select id="sel-question-gap" style="background:#334155; color:#fff; border:1px solid #475569; border-radius:3px; padding:2px 4px; font-size:11.5px;">
-            <option value="1px">Tight (1px)</option>
-            <option value="2px" selected>Normal (2px)</option>
-            <option value="3px">Relaxed (3px)</option>
-            <option value="4px">Wide (4px)</option>
-          </select>
-
-          <span style="border-left:1px solid #475569; height:14px;"></span>
-
           <!-- Zoom Slider -->
           <div class="zoom-slider">
+            <span style="font-size:11.5px; color:#94a3b8;">Zoom:</span>
             <input type="range" id="zoom-range" min="40" max="130" value="85" step="5" style="width:70px;">
             <span id="zoom-value">85%</span>
           </div>
         </div>
+      </div>
+
+      <!-- CANVA / PHOTOSHOP STYLE DTP SPACING & TYPOGRAPHY TOOLBAR -->
+      <div class="dtp-toolbar">
+        <div class="dtp-group">
+          <span class="dtp-label">🔤 Font:</span>
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeFontSize(-0.25)" title="Decrease font size">−</button>
+          <input type="range" id="slider-font-size" min="7.5" max="12.0" step="0.25" value="9.5" oninput="onFontSizeSlider(this.value)">
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeFontSize(0.25)" title="Increase font size">+</button>
+          <span class="dtp-val" id="val-font-size">9.5pt</span>
+        </div>
+
+        <span class="dtp-divider"></span>
+
+        <div class="dtp-group">
+          <span class="dtp-label">↕️ Line:</span>
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeLineHeight(-0.02)" title="Decrease line spacing">−</button>
+          <input type="range" id="slider-line-height" min="1.10" max="1.65" step="0.02" value="1.25" oninput="onLineHeightSlider(this.value)">
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeLineHeight(0.02)" title="Increase line spacing">+</button>
+          <span class="dtp-val" id="val-line-height">1.25</span>
+        </div>
+
+        <span class="dtp-divider"></span>
+
+        <div class="dtp-group">
+          <span class="dtp-label">↔️ Question Gap:</span>
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeQuestionGap(-1)" title="Decrease gap between questions">−</button>
+          <input type="range" id="slider-question-gap" min="0" max="18" step="1" value="3" oninput="onQuestionGapSlider(this.value)">
+          <button type="button" class="dtp-nudge-btn" onclick="nudgeQuestionGap(1)" title="Increase gap between questions">+</button>
+          <span class="dtp-val" id="val-question-gap">3px</span>
+        </div>
+
+        <span class="dtp-divider"></span>
+
+        <div class="dtp-group">
+          <span class="dtp-label">📐 Sec Gap:</span>
+          <input type="range" id="slider-section-gap" min="2" max="22" step="1" value="6" oninput="onSectionGapSlider(this.value)">
+          <span class="dtp-val" id="val-section-gap">6px</span>
+        </div>
+
+        <span class="dtp-divider"></span>
+
+        <!-- Quick 1-Click Presets -->
+        <div class="dtp-group">
+          <span class="dtp-label" style="color:#f59e0b;">Presets:</span>
+          <button type="button" class="btn-preset" onclick="applyPreset('full')" title="Short Papers (Cyber Security, etc.): Larger font & airy spacing to fill the entire page without bottom gaps">
+            📄 Fill Page
+          </button>
+          <button type="button" class="btn-preset" onclick="applyPreset('standard')" title="Standard balanced spacing">
+            ⚖️ Standard
+          </button>
+          <button type="button" class="btn-preset" onclick="applyPreset('compact')" title="Long Papers / Tables: Compact spacing to prevent overflow">
+            🗜️ Compact
+          </button>
+        </div>
+
+        <span class="dtp-divider"></span>
+
+        <!-- Magic 1-Click Auto Fill Height -->
+        <button type="button" class="btn btn-purple" style="font-size:11px; padding:3px 9px;" onclick="autoFillPageHeight()" title="Smart Auto-Fit: Automatically calculates the best font size and spacing to fill 95% of the page cleanly!">
+          ✨ Auto-Fill Height
+        </button>
       </div>
 
       <div class="preview-scroll">
@@ -442,7 +478,7 @@ b) Alternative question..." style="width:100%; font-family:monospace; font-size:
     </div>
   </div>
 
-  <script src="templates.js?v=4"></script>
-  <script src="app.js?v=4"></script>
+  <script src="templates.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
