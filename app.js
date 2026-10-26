@@ -676,8 +676,12 @@ function formatQuestionContent(str) {
     .replace(/&lt;\/sup&gt;/gi, '</sup>')
     .replace(/&lt;b&gt;/gi, '<b>')
     .replace(/&lt;\/b&gt;/gi, '</b>')
+    .replace(/&lt;strong&gt;/gi, '<b>')
+    .replace(/&lt;\/strong&gt;/gi, '</b>')
     .replace(/&lt;i&gt;/gi, '<i>')
     .replace(/&lt;\/i&gt;/gi, '</i>')
+    .replace(/&lt;em&gt;/gi, '<i>')
+    .replace(/&lt;\/em&gt;/gi, '</i>')
     .replace(/&lt;br\s*\/?&gt;/gi, '<br/>')
     .replace(/\r?\n/g, '<br/>');
 
@@ -1417,8 +1421,8 @@ function extractExamStructure(lines) {
   // 1. Reset current paper to clean slate so old template text doesn't mix with imported paper
   currentPaper = {
     paperCode: '',
-    collegeName: '',
-    collegeAddress: '',
+    collegeName: "ST. ANN'S COLLEGE FOR WOMEN (AUTONOMOUS)",
+    collegeAddress: "MALKAPURAM, VISAKHAPATNAM - 530011",
     examDetails: '',
     subjectTitle: '',
     streamDetails: '',
@@ -1444,6 +1448,37 @@ function extractExamStructure(lines) {
     }
   };
 
+  // 0. Pre-trim: Check if document contains Marking Scheme / Answer Key
+  let markingSchemeIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const pt = decodeHtmlEntities(lines[i].replace(/<[^>]*>/g, '').trim());
+    if (/(?:MARKING\s*SCHEME|ANSWER\s*KEY|KEY\s*SHEET|SCHEME\s*OF\s*(?:VALUATION|EVALUATION)|\bSOLUTIONS?\b)/i.test(pt)) {
+      markingSchemeIndex = i;
+      break;
+    }
+  }
+
+  if (markingSchemeIndex !== -1) {
+    let cutoff = markingSchemeIndex;
+    while (cutoff > 0) {
+      const prevPt = decodeHtmlEntities(lines[cutoff - 1].replace(/<[^>]*>/g, '').trim()).toUpperCase();
+      if (!prevPt || 
+          prevPt.includes('SEMESTER') || 
+          prevPt.includes('EXAMINATION') || 
+          prevPt.includes('SKILL COURSE') || 
+          prevPt.includes('COLLEGE') || 
+          prevPt.startsWith('[') || 
+          prevPt.includes('MAX TIME') || 
+          prevPt.includes('TIME:') || 
+          prevPt.includes('MARKS:')) {
+        cutoff--;
+      } else {
+        break;
+      }
+    }
+    lines = lines.slice(0, cutoff);
+  }
+
   let currentSection = 'header'; // 'header', 'secA', 'secB'
   let secAQuestions = [];
   let secBQuestions = [];
@@ -1455,8 +1490,19 @@ function extractExamStructure(lines) {
   function cleanQuestionText(text) {
     if (!text) return '';
     text = decodeHtmlEntities(text);
+    // Replace Mammoth/HTML tags with clean equivalents
+    text = text
+      .replace(/<\/?(?:p|div|span)[^>]*>/gi, '')
+      .replace(/<strong[^>]*>/gi, '<b>')
+      .replace(/<\/strong>/gi, '</b>')
+      .replace(/<em[^>]*>/gi, '<i>')
+      .replace(/<\/em>/gi, '</i>')
+      .replace(/<li[^>]*>/gi, '\n• ')
+      .replace(/<\/li>/gi, '')
+      .replace(/<\/?(?:ul|ol)[^>]*>/gi, '');
+
     // Strip redundant leading numbering, HTML tag wrappers, and (a) / a) / a. or (b) / b) / b. prefixes
-    text = text.replace(/^(?:<[^>]*>|\s)*(?:\(?[aAbB]\)?[.\)])(?:<[^>]*>|\s)*/i, '').trim();
+    text = text.replace(/^(?:<[^>]*>|\s)*(?:\(?[aAbB]\)?[\.\)])(?:<[^>]*>|\s)*/i, '').trim();
     // Stack roman numeral sub-points like ii. or ii) onto new lines
     text = text.replace(/([^\n])\s+(ii|iii|iv|v|vi)[\.\)]\s+/gi, '$1\n$2) ');
     text = text.replace(/([^\n])\s+\((ii|iii|iv|v|vi)\)\s+/gi, '$1\n($2) ');
@@ -1509,13 +1555,13 @@ function extractExamStructure(lines) {
             currentSection = 'secA';
             const instMatch = plainText.match(/((?:I\.\s*)?Answer\s+any\s+[^:(]+)/i);
             if (instMatch) {
-              let cleanInst = instMatch[1].trim();
+              let cleanInst = instMatch[1].replace(/\s*\(?\d+\s*[\*xX×]\s*\d+\s*=\s*\d+\s*M?\)?/gi, '').trim();
               if (!cleanInst.startsWith('I.')) cleanInst = 'I. ' + cleanInst;
               currentPaper.sectionA.instruction = cleanInst + (cleanInst.endsWith('.') || cleanInst.endsWith(':') ? '' : '.');
             }
-            const secMarksMatch = plainText.match(/(\(?\d+\s*[xX×]\s*\d+\s*=\s*\d+\s*M?\)?)(\b|$)/);
+            const secMarksMatch = plainText.match(/(\(?\d+\s*[\*xX×]\s*\d+\s*=\s*\d+\s*M?\)?)(\b|$)/);
             if (secMarksMatch) {
-              currentPaper.sectionA.marks = secMarksMatch[1].replace(/[()]/g, '').trim();
+              currentPaper.sectionA.marks = secMarksMatch[1].replace(/[()]/g, '').trim().replace(/\*/g, 'x');
             }
           }
           return;
@@ -1540,13 +1586,13 @@ function extractExamStructure(lines) {
       if (upper.includes('ANSWER ANY') || upper.includes('FIVE QUESTIONS') || (upper.includes('ANSWER') && upper.includes('FOLLOWING'))) {
         const instMatch = plainText.match(/((?:I\.\s*)?Answer\s+[^:(]+)/i);
         if (instMatch) {
-          let cleanInst = instMatch[1].trim();
+          let cleanInst = instMatch[1].replace(/\s*\(?\d+\s*[\*xX×]\s*\d+\s*=\s*\d+\s*M?\)?/gi, '').trim();
           if (!cleanInst.startsWith('I.')) cleanInst = 'I. ' + cleanInst;
           currentPaper.sectionA.instruction = cleanInst + (cleanInst.endsWith('.') || cleanInst.endsWith(':') ? '' : '.');
         }
-        const secMarksMatch = plainText.match(/(\(?\d+\s*[xX×]\s*\d+\s*=\s*\d+\s*M?\)?)(\b|$)/);
+        const secMarksMatch = plainText.match(/(\(?\d+\s*[\*xX×]\s*\d+\s*=\s*\d+\s*M?\)?)(\b|$)/);
         if (secMarksMatch) {
-          currentPaper.sectionA.marks = secMarksMatch[1].replace(/[()]/g, '').trim();
+          currentPaper.sectionA.marks = secMarksMatch[1].replace(/[()]/g, '').trim().replace(/\*/g, 'x');
         }
         return;
       }
@@ -1562,6 +1608,10 @@ function extractExamStructure(lines) {
           // Implicit Section B started
           currentSection = 'secB';
         }
+      } else if (!secAQuestions[0] && plainText.length > 3 && !upper.startsWith('SECTION')) {
+        // Fallback for unnumbered Question 1 (e.g. "What is Information Security?")
+        secAQuestions[0] = cleanQuestionText(line);
+        return;
       } else if (secAQuestions.length > 0) {
         // Append continuation line / table to previous question
         secAQuestions[secAQuestions.length - 1] += '\n' + cleanQuestionText(line);
@@ -1575,32 +1625,52 @@ function extractExamStructure(lines) {
       if (upper.includes('ANSWER ALL') || upper.includes('ANSWER ANY') || (upper.includes('ANSWER') && upper.includes('FOLLOWING')) || upper.includes('FOLLOWING QUESTIONS')) {
         const instMatch = plainText.match(/((?:II\.\s*)?Answer\s+[^:(]+)/i);
         if (instMatch) {
-          let cleanInst = instMatch[1].trim();
+          let cleanInst = instMatch[1].replace(/\s*\(?\d+\s*[\*xX×]\s*\d+\s*=\s*\d+\s*M?\)?/gi, '').trim();
           if (!cleanInst.startsWith('II.')) cleanInst = 'II. ' + cleanInst;
           currentPaper.sectionB.instruction = cleanInst + (cleanInst.endsWith('.') || cleanInst.endsWith(':') ? '' : '.');
         }
-        const secBMarksMatch = plainText.match(/(\(?\d+\s*[xX×]\s*\d+\s*=\s*\d+\s*M?\)?)(\b|$)/);
+        const secBMarksMatch = plainText.match(/(\(?\d+\s*[\*xX×]\s*\d+\s*=\s*\d+\s*M?\)?)(\b|$)/);
         if (secBMarksMatch) {
-          currentPaper.sectionB.marks = secBMarksMatch[1].replace(/[()]/g, '').trim();
+          currentPaper.sectionB.marks = secBMarksMatch[1].replace(/[()]/g, '').trim().replace(/\*/g, 'x');
         }
         return;
       }
 
       const isChoiceWord = upper === 'OR' || upper === '(OR)' || plainText.includes('(లేదా)') || upper === 'లేదా';
       if (isChoiceWord && currentSecBQuestion) {
-        currentSecBQuestion.choice = '(Or)';
+        currentSecBQuestion.choice = upper.includes('లేదా') ? 'లేదా' : 'Or';
         currentSecBPart = 'b';
         return;
       }
 
-      // Check for Question start: e.g. "9. a)", "9.", "10."
-      const qStartMatch = plainText.match(/^(\d{1,2})[\.\)\-]?\s*(?:[aA][\.\)])?\s*(.*)/);
+      // Check for explicit Part (b): "9 b).", "9. b)", "9(b).", "b)", "(b)"
+      const bWithNumMatch = plainText.match(/^(\d{1,2})\s*[\.\)\-]?\s*\(?[bB]\)?[\.\)]\s*(.*)/);
+      const bWithoutNumMatch = !bWithNumMatch ? plainText.match(/^(?:\(?[bB]\)?[\.\)])\s*(.*)/) : null;
+
+      if (bWithNumMatch || bWithoutNumMatch) {
+        const bText = bWithNumMatch ? bWithNumMatch[2] : bWithoutNumMatch[1];
+        const qNum = bWithNumMatch ? parseInt(bWithNumMatch[1], 10) : (currentSecBQuestion ? currentSecBQuestion.num : null);
+
+        let targetQ = secBQuestions.find(q => q.num === qNum);
+        if (!targetQ && currentSecBQuestion) targetQ = currentSecBQuestion;
+
+        if (targetQ) {
+          targetQ.b = cleanQuestionText(bText);
+          targetQ.choice = targetQ.choice || 'Or';
+          currentSecBQuestion = targetQ;
+          currentSecBPart = 'b';
+          return;
+        }
+      }
+
+      // Check for Question start: "9 a).", "9. a)", "9.", "10."
+      const qStartMatch = plainText.match(/^(\d{1,2})\s*[\.\)\-]?\s*(?:\(?[aA]\)?[\.\)])?\s*(.*)/);
       if (qStartMatch && parseInt(qStartMatch[1], 10) >= 9) {
         const qNum = parseInt(qStartMatch[1], 10);
-        const rest = line.replace(/^(?:<[^>]*>|\s)*\d{1,2}[\.\)\-]?(?:<[^>]*>|\s)*(?:\(?[aA]\)?[.\)])?(?:<[^>]*>|\s)*/i, '').trim();
+        const qText = qStartMatch[2];
         currentSecBQuestion = {
           num: qNum,
-          a: cleanQuestionText(rest),
+          a: cleanQuestionText(qText),
           choice: 'Or',
           b: ''
         };
@@ -1609,22 +1679,23 @@ function extractExamStructure(lines) {
         return;
       }
 
-      // Check for explicit "b)" or "(b)"
-      const bPartMatch = plainText.match(/^(?:\(?[bB]\)?[.\)])\s*(.*)/);
-      if (bPartMatch && currentSecBQuestion) {
-        const rest = line.replace(/^(?:<[^>]*>|\s)*(?:\(?[bB]\)?[.\)])(?:<[^>]*>|\s)*/i, '').trim();
-        currentSecBQuestion.b = cleanQuestionText(rest);
-        currentSecBPart = 'b';
+      // Standalone "(a)" on line following question number
+      const aOnlyMatch = plainText.match(/^(?:\(?[aA]\)?[\.\)])\s*(.*)/);
+      if (aOnlyMatch && currentSecBQuestion && !currentSecBQuestion.a) {
+        currentSecBQuestion.a = cleanQuestionText(aOnlyMatch[1]);
+        currentSecBPart = 'a';
         return;
       }
 
-      // Append continuation lines or tables
+      // Continuation lines or tables
       if (currentSecBQuestion) {
         const formatted = cleanQuestionText(line);
-        if (currentSecBPart === 'a') {
-          currentSecBQuestion.a += (currentSecBQuestion.a ? '\n' : '') + formatted;
-        } else {
-          currentSecBQuestion.b += (currentSecBQuestion.b ? '\n' : '') + formatted;
+        if (formatted) {
+          if (currentSecBPart === 'a') {
+            currentSecBQuestion.a += (currentSecBQuestion.a ? '\n' : '') + formatted;
+          } else {
+            currentSecBQuestion.b += (currentSecBQuestion.b ? '\n' : '') + formatted;
+          }
         }
       }
     }
@@ -1632,25 +1703,31 @@ function extractExamStructure(lines) {
 
   // Assign parsed header lines cleanly
   if (headerLines.length > 0) {
-    currentPaper.collegeName = formatCollegeName(headerLines[0] || '');
-    for (let i = 1; i < headerLines.length; i++) {
-      const l = headerLines[i];
+    const collegeKeywords = ['COLLEGE', 'INSTITUTE', 'UNIVERSITY', 'ACADEMY', 'SCHOOL', 'VIDYALAYA'];
+    const collegeLineIdx = headerLines.findIndex(l => collegeKeywords.some(kw => l.toUpperCase().includes(kw)));
+    
+    if (collegeLineIdx !== -1) {
+      currentPaper.collegeName = formatCollegeName(headerLines[collegeLineIdx]);
+    }
+
+    headerLines.forEach((l, idx) => {
+      if (idx === collegeLineIdx) return;
       const u = l.toUpperCase();
       if (u.includes('530') || u.includes('UGC') || u.includes('NAAC') || u.includes('AFFILIATED') || u.includes('MALKAPURAM') || u.includes('ANDHRA PRADESH')) {
         currentPaper.collegeAddress = (currentPaper.collegeAddress ? currentPaper.collegeAddress + ', ' : '') + l;
       } else if (u.includes('SEMESTER') || u.includes('BATCH') || u.includes('EXAMINATION') || u.includes('DEGREE')) {
         currentPaper.examDetails = (currentPaper.examDetails ? currentPaper.examDetails + ' — ' : '') + l;
-      } else if (u.includes('COURSE') || u.includes('CHEMISTRY') || u.includes('PHYSICS') || u.includes('MATHEMATICS') || u.includes('COMMERCE') || u.includes('ACCOUNTING')) {
-        currentPaper.subjectTitle = (currentPaper.subjectTitle ? currentPaper.subjectTitle + ' | ' : '') + l;
-      } else if (u.includes('B.SC') || u.includes('BSC') || u.includes('B.COM') || u.includes('B.A') || u.includes('MAJOR') || u.includes('BOTANY')) {
+      } else if (u.includes('COURSE') || u.includes('SKILL') || u.includes('B.SC') || u.includes('BSC') || u.includes('B.COM') || u.includes('B.A') || u.includes('MAJOR') || u.includes('BOTANY')) {
         currentPaper.streamDetails = (currentPaper.streamDetails ? currentPaper.streamDetails + ' ' : '') + l;
+      } else if (u.includes('CHEMISTRY') || u.includes('PHYSICS') || u.includes('MATHEMATICS') || u.includes('COMMERCE') || u.includes('ACCOUNTING') || u.includes('SECURITY') || u.includes('CYBER') || u.includes('PAPER')) {
+        const cleanSubj = l.replace(/\s*(?:QUESTION\s*PAPER|QP)\s*$/i, '').trim();
+        currentPaper.subjectTitle = (currentPaper.subjectTitle ? currentPaper.subjectTitle + ' | ' : '') + cleanSubj;
       } else {
-        // Fallback for unlabeled lines
-        if (!currentPaper.collegeAddress) currentPaper.collegeAddress = l;
-        else if (!currentPaper.examDetails) currentPaper.examDetails = l;
+        if (!currentPaper.examDetails) currentPaper.examDetails = l;
         else if (!currentPaper.subjectTitle) currentPaper.subjectTitle = l;
+        else if (!currentPaper.streamDetails) currentPaper.streamDetails = l;
       }
-    }
+    });
   }
 
   // Assign Section A questions
