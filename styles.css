@@ -292,6 +292,22 @@ body {
   background: #cbd5e1;
 }
 
+.btn-mini-danger {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-mini-danger:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
 /* Right Preview Area */
 .preview-pane {
   flex: 1;
@@ -546,11 +562,12 @@ body {
   display: flex;
   justify-content: space-between;
   font-size: var(--base-paper-font);
-  font-weight: 600;
-  margin-top: 2px;
-  padding-top: 1px;
+  font-weight: 700;
+  margin-top: 3px;
+  padding: 2px 0;
   border-top: 1px solid #000;
-  margin-bottom: 2px;
+  border-bottom: 1px solid #000;
+  margin-bottom: 4px;
 }
 
 .section-header {
@@ -592,13 +609,17 @@ body {
 }
 
 .q-num {
-  width: 17px;
+  min-width: 20px;
+  width: auto;
+  margin-right: 4px;
   flex-shrink: 0;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .mode-full-a4 .q-num {
-  width: 22px;
+  min-width: 24px;
+  width: auto;
+  margin-right: 5px;
 }
 
 .q-text {

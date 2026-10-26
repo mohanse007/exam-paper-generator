@@ -27,6 +27,16 @@ function decodeHtmlEntities(str) {
     .replace(/&nbsp;/g, ' ');
 }
 
+// Helper: College Name Normalizer
+function formatCollegeName(name) {
+  if (!name) return '';
+  return name
+    .replace(/ST\.([a-zA-Z])/gi, 'ST. $1')
+    .replace(/([a-zA-Z’']+)(COLLEGE)/gi, '$1 $2')
+    .replace(/(COLLEGE)(FOR)(WOMEN)/gi, '$1 $2 $3')
+    .replace(/\bAUTONOMUS\b/gi, 'AUTONOMOUS');
+}
+
 // Helper: Unicode Subscript and Superscript Converter
 const subMap = { '₀':'0', '₁':'1', '₂':'2', '₃':'3', '₄':'4', '₅':'5', '₆':'6', '₇':'7', '₈':'8', '₉':'9', '₊':'+', '₋':'-' };
 const supMap = { '⁰':'0', '¹':'1', '²':'2', '³':'3', '⁴':'4', '⁵':'5', '⁶':'6', '⁷':'7', '⁸':'8', '⁹':'9', '⁺':'+', '⁻':'-' };
@@ -231,17 +241,21 @@ function renderForm() {
 
 function renderSecBAll(container) {
   currentPaper.sectionB.questions.forEach((q, idx) => {
+    const isStandalone = !q.b || !q.b.trim();
     const qDiv = document.createElement('div');
     qDiv.className = 'question-card';
     qDiv.innerHTML = `
       <div class="question-card-header">
-        <span>Question ${q.num} (Compulsory Choice)</span>
-        <span style="font-size:10.5px; color:#0284c7; font-weight:normal;" id="q-page-tag-${q.num}"></span>
+        <span>Question ${q.num} ${isStandalone ? '(Standalone)' : '(Choice a / b)'}</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:10.5px; color:#0284c7; font-weight:normal;" id="q-page-tag-${q.num}"></span>
+          ${currentPaper.sectionB.questions.length > 1 ? `<button type="button" class="btn-mini-danger" onclick="removeSecBQuestion(${idx})" title="Delete question">✕</button>` : ''}
+        </div>
       </div>
 
       <div class="form-group" style="margin-bottom:5px;">
         <div class="q-box-toolbar">
-          <label style="margin:0;">Option (a):</label>
+          <label style="margin:0;">${isStandalone ? 'Question text:' : 'Option (a):'}</label>
           <button type="button" class="btn-mini-tool" onclick="openTableModal('secB', ${idx}, 'a')">
             📊 + Add Table
           </button>
@@ -249,12 +263,12 @@ function renderSecBAll(container) {
         <textarea rows="3" data-type="secB" data-index="${idx}" data-part="a">${escapeHtml(q.a || '')}</textarea>
       </div>
 
-      <div class="choice-row">
+      <div class="choice-row" style="${isStandalone ? 'display:none;' : ''}">
         <label style="margin:0; font-size:11px;">Choice word:</label>
         <input type="text" data-type="secB" data-index="${idx}" data-part="choice" value="${escapeHtml(q.choice || 'Or')}" />
       </div>
 
-      <div class="form-group" style="margin-bottom:2px;">
+      <div class="form-group" style="margin-bottom:2px; ${isStandalone ? 'display:none;' : ''}">
         <div class="q-box-toolbar">
           <label style="margin:0;">Option (b):</label>
           <button type="button" class="btn-mini-tool" onclick="openTableModal('secB', ${idx}, 'b')">
@@ -263,10 +277,64 @@ function renderSecBAll(container) {
         </div>
         <textarea rows="3" data-type="secB" data-index="${idx}" data-part="b">${escapeHtml(q.b || '')}</textarea>
       </div>
+
+      <div style="margin-top:6px; display:flex; gap:6px;">
+        <button type="button" class="btn-mini-tool" style="font-size:11px;" onclick="toggleSecBChoice(${idx})">
+          ${isStandalone ? '➕ Add (Or) Option (b)' : '➖ Remove (Or) Option (b)'}
+        </button>
+      </div>
     `;
     container.appendChild(qDiv);
   });
+
+  const addWrap = document.createElement('div');
+  addWrap.style.cssText = 'margin-top:8px; margin-bottom:12px; text-align:center;';
+  addWrap.innerHTML = `
+    <button type="button" class="btn btn-secondary" style="width:100%; font-size:12px; padding:6px;" onclick="addSecBQuestion()">
+      ➕ Add Question to Section B
+    </button>
+  `;
+  container.appendChild(addWrap);
 }
+
+window.addSecBQuestion = function() {
+  const nextNum = currentPaper.sectionB.questions.length > 0 
+    ? Math.max(...currentPaper.sectionB.questions.map(q => q.num)) + 1 
+    : 9;
+  currentPaper.sectionB.questions.push({
+    num: nextNum,
+    a: '',
+    choice: 'Or',
+    b: ''
+  });
+  persistState();
+  renderForm();
+  renderPreview();
+};
+
+window.removeSecBQuestion = function(idx) {
+  if (currentPaper.sectionB.questions.length <= 1) return;
+  currentPaper.sectionB.questions.splice(idx, 1);
+  currentPaper.sectionB.questions.forEach((q, i) => { q.num = 9 + i; });
+  persistState();
+  renderForm();
+  renderPreview();
+};
+
+window.toggleSecBChoice = function(idx) {
+  const q = currentPaper.sectionB.questions[idx];
+  if (!q) return;
+  if (q.b && q.b.trim()) {
+    q.b = '';
+    q.choice = '';
+  } else {
+    q.choice = 'Or';
+    q.b = ' ';
+  }
+  persistState();
+  renderForm();
+  renderPreview();
+};
 
 function persistState() {
   try {
@@ -386,19 +454,30 @@ function calculateDynamicPagination() {
         </div>
       </div>
       <div id="m-questions">
-        ${allSecB.map(q => `
-          <div class="choice-q" id="m-q-${q.num}">
-            <div class="choice-part-row">
-              <span class="choice-part-num">${q.num}. a)</span>
-              <div class="q-text">${formatQuestionContent(q.a || '')}</div>
-            </div>
-            <div class="choice-label">${q.choice || 'Or'}</div>
-            <div class="choice-part-row">
-              <span class="choice-sub-num">b)</span>
-              <div class="q-text">${formatQuestionContent(q.b || '')}</div>
-            </div>
-          </div>
-        `).join('')}
+        ${allSecB.map(q => {
+          if (q.b && q.b.trim()) {
+            return `
+              <div class="choice-q" id="m-q-${q.num}">
+                <div class="choice-part-row">
+                  <span class="choice-part-num">${q.num}. a)</span>
+                  <div class="q-text">${formatQuestionContent(q.a || '')}</div>
+                </div>
+                <div class="choice-label">${q.choice || 'Or'}</div>
+                <div class="choice-part-row">
+                  <span class="choice-sub-num">b)</span>
+                  <div class="q-text">${formatQuestionContent(q.b || '')}</div>
+                </div>
+              </div>
+            `;
+          } else {
+            return `
+              <div class="q-item" id="m-q-${q.num}" style="margin-bottom:var(--question-gap);">
+                <span class="q-num">${q.num}.</span>
+                <div class="q-text">${formatQuestionContent(q.a || '')}</div>
+              </div>
+            `;
+          }
+        }).join('')}
       </div>
     </div>
   `;
@@ -551,19 +630,28 @@ function generateSecBGroupHTML(questions, showHeader = false) {
 
   let qItems = '';
   questions.forEach(q => {
-    qItems += `
-      <div class="choice-q">
-        <div class="choice-part-row">
-          <span class="choice-part-num">${q.num}. a)</span>
+    if (q.b && q.b.trim()) {
+      qItems += `
+        <div class="choice-q">
+          <div class="choice-part-row">
+            <span class="choice-part-num">${q.num}. a)</span>
+            <div class="q-text">${formatQuestionContent(q.a || '')}</div>
+          </div>
+          <div class="choice-label">${q.choice || 'Or'}</div>
+          <div class="choice-part-row">
+            <span class="choice-sub-num">b)</span>
+            <div class="q-text">${formatQuestionContent(q.b || '')}</div>
+          </div>
+        </div>
+      `;
+    } else {
+      qItems += `
+        <div class="q-item" style="margin-bottom:var(--question-gap);">
+          <span class="q-num">${q.num}.</span>
           <div class="q-text">${formatQuestionContent(q.a || '')}</div>
         </div>
-        <div class="choice-label">${q.choice || 'Or'}</div>
-        <div class="choice-part-row">
-          <span class="choice-sub-num">b)</span>
-          <div class="q-text">${formatQuestionContent(q.b || '')}</div>
-        </div>
-      </div>
-    `;
+      `;
+    }
   });
 
   return secBHtml + `<div class="questions-list">${qItems}</div>`;
@@ -610,7 +698,7 @@ function renderPreview() {
         ${generateSectionAHTML()}
         ${p1Questions.length > 0 ? generateSecBGroupHTML(p1Questions, true) : ''}
       </div>
-      ${totalPages === 1 ? '<div class="end-asterisks">************</div>' : ''}
+      ${totalPages === 1 ? '<div class="end-asterisks">****************************</div>' : ''}
     </div>
   `;
 
@@ -622,7 +710,7 @@ function renderPreview() {
         <div class="page-top-block">
           ${generateSecBGroupHTML(p2Questions, p1Questions.length === 0)}
         </div>
-        <div class="end-asterisks">************</div>
+        <div class="end-asterisks">****************************</div>
       </div>
     `;
   }
@@ -1380,13 +1468,13 @@ function extractExamStructure(lines) {
     const upper = plainText.toUpperCase();
 
     // Check for Section A trigger
-    if (upper.includes('SECTION - A') || upper.includes('SECTION A') || upper.includes('PART - A') || upper.includes('PART A')) {
+    if (/\b(?:SECTION|PART)\s*[\-–—]?\s*A\b/i.test(plainText)) {
       currentSection = 'secA';
       return;
     }
 
     // Check for Section B trigger
-    if (upper.includes('SECTION - B') || upper.includes('SECTION B') || upper.includes('PART - B') || upper.includes('PART B')) {
+    if (/\b(?:SECTION|PART)\s*[\-–—]?\s*B\b/i.test(plainText)) {
       currentSection = 'secB';
       return;
     }
@@ -1404,18 +1492,40 @@ function extractExamStructure(lines) {
 
         // Check Time and Marks anywhere
         if (upper.includes('TIME:') || upper.includes('TIME :') || upper.includes('HOURS') || upper.includes('HRS')) {
-          const timeMatch = plainText.match(/Time\s*[:\-]?\s*([0-9\.\s\w]+?)(?=\s+(?:Max|Marks|Set)|$)/i);
-          const marksMatch = plainText.match(/(?:Max\s*Marks|Marks)\s*[:\-]?\s*([0-9]+)/i);
-          if (timeMatch) currentPaper.timeStr = 'Time:' + timeMatch[1].trim();
-          else currentPaper.timeStr = plainText;
-          if (marksMatch) currentPaper.maxMarksStr = 'Max Marks:' + marksMatch[1].trim();
+          const timeMatch = plainText.match(/Time\s*[:\-]?\s*([0-9\.\/½¼¾\s]+(?:\s*(?:Hours?|Hrs?|Mins?|Minutes?))?)/i);
+          const marksMatch = plainText.match(/(?:Max\s*\.?\s*Marks?|Marks?)\s*[:\-]?\s*([0-9]+(?:\s*M)?)/i);
+          if (timeMatch && timeMatch[1]) {
+            currentPaper.timeStr = 'Time:' + timeMatch[1].trim();
+          } else {
+            const shortTime = plainText.split(/Max|Marks|Set|SECTION/i)[0].trim();
+            if (shortTime.length < 25) currentPaper.timeStr = shortTime;
+          }
+          if (marksMatch && marksMatch[1]) {
+            currentPaper.maxMarksStr = 'Max Marks:' + marksMatch[1].replace(/M$/i, '').trim();
+          }
+
+          // If Section A instruction was on the same line (e.g. Botany paper)
+          if (upper.includes('SECTION - A') || upper.includes('SECTION A') || upper.includes('SECTION–A') || upper.includes('ANSWER ANY')) {
+            currentSection = 'secA';
+            const instMatch = plainText.match(/((?:I\.\s*)?Answer\s+any\s+[^:(]+)/i);
+            if (instMatch) {
+              let cleanInst = instMatch[1].trim();
+              if (!cleanInst.startsWith('I.')) cleanInst = 'I. ' + cleanInst;
+              currentPaper.sectionA.instruction = cleanInst + (cleanInst.endsWith('.') || cleanInst.endsWith(':') ? '' : '.');
+            }
+            const secMarksMatch = plainText.match(/(\(?\d+\s*[xX×]\s*\d+\s*=\s*\d+\s*M?\)?)(\b|$)/);
+            if (secMarksMatch) {
+              currentPaper.sectionA.marks = secMarksMatch[1].replace(/[()]/g, '').trim();
+            }
+          }
           return;
         }
 
         if (upper.includes('MARKS:') || upper.includes('MARKS :') || upper.includes('MAX MARKS')) {
-          const marksMatch = plainText.match(/(?:Max\s*Marks|Marks)\s*[:\-]?\s*([0-9]+)/i);
-          if (marksMatch) currentPaper.maxMarksStr = 'Max Marks:' + marksMatch[1].trim();
-          else currentPaper.maxMarksStr = plainText;
+          const marksMatch = plainText.match(/(?:Max\s*\.?\s*Marks?|Marks?)\s*[:\-]?\s*([0-9]+(?:\s*M)?)/i);
+          if (marksMatch && marksMatch[1]) {
+            currentPaper.maxMarksStr = 'Max Marks:' + marksMatch[1].replace(/M$/i, '').trim();
+          }
           return;
         }
 
@@ -1427,7 +1537,17 @@ function extractExamStructure(lines) {
     // Section A Question Extraction (1 to 8)
     if (currentSection === 'secA') {
       // Check for instruction line
-      if (upper.includes('ANSWER ANY') || upper.includes('FIVE QUESTIONS') || upper.includes('MARKS')) {
+      if (upper.includes('ANSWER ANY') || upper.includes('FIVE QUESTIONS') || (upper.includes('ANSWER') && upper.includes('FOLLOWING'))) {
+        const instMatch = plainText.match(/((?:I\.\s*)?Answer\s+[^:(]+)/i);
+        if (instMatch) {
+          let cleanInst = instMatch[1].trim();
+          if (!cleanInst.startsWith('I.')) cleanInst = 'I. ' + cleanInst;
+          currentPaper.sectionA.instruction = cleanInst + (cleanInst.endsWith('.') || cleanInst.endsWith(':') ? '' : '.');
+        }
+        const secMarksMatch = plainText.match(/(\(?\d+\s*[xX×]\s*\d+\s*=\s*\d+\s*M?\)?)(\b|$)/);
+        if (secMarksMatch) {
+          currentPaper.sectionA.marks = secMarksMatch[1].replace(/[()]/g, '').trim();
+        }
         return;
       }
 
@@ -1449,10 +1569,20 @@ function extractExamStructure(lines) {
       }
     }
 
-    // Section B Question Extraction (9 to 13 with Or choice)
+    // Section B Question Extraction (9 to 14+ with optional Or choice)
     if (currentSection === 'secB') {
       // Check for instruction line
-      if (upper.includes('ANSWER ALL') || upper.includes('FOLLOWING QUESTIONS')) {
+      if (upper.includes('ANSWER ALL') || upper.includes('ANSWER ANY') || (upper.includes('ANSWER') && upper.includes('FOLLOWING')) || upper.includes('FOLLOWING QUESTIONS')) {
+        const instMatch = plainText.match(/((?:II\.\s*)?Answer\s+[^:(]+)/i);
+        if (instMatch) {
+          let cleanInst = instMatch[1].trim();
+          if (!cleanInst.startsWith('II.')) cleanInst = 'II. ' + cleanInst;
+          currentPaper.sectionB.instruction = cleanInst + (cleanInst.endsWith('.') || cleanInst.endsWith(':') ? '' : '.');
+        }
+        const secBMarksMatch = plainText.match(/(\(?\d+\s*[xX×]\s*\d+\s*=\s*\d+\s*M?\)?)(\b|$)/);
+        if (secBMarksMatch) {
+          currentPaper.sectionB.marks = secBMarksMatch[1].replace(/[()]/g, '').trim();
+        }
         return;
       }
 
@@ -1502,7 +1632,7 @@ function extractExamStructure(lines) {
 
   // Assign parsed header lines cleanly
   if (headerLines.length > 0) {
-    currentPaper.collegeName = headerLines[0] || '';
+    currentPaper.collegeName = formatCollegeName(headerLines[0] || '');
     for (let i = 1; i < headerLines.length; i++) {
       const l = headerLines[i];
       const u = l.toUpperCase();
@@ -1512,7 +1642,7 @@ function extractExamStructure(lines) {
         currentPaper.examDetails = (currentPaper.examDetails ? currentPaper.examDetails + ' — ' : '') + l;
       } else if (u.includes('COURSE') || u.includes('CHEMISTRY') || u.includes('PHYSICS') || u.includes('MATHEMATICS') || u.includes('COMMERCE') || u.includes('ACCOUNTING')) {
         currentPaper.subjectTitle = (currentPaper.subjectTitle ? currentPaper.subjectTitle + ' | ' : '') + l;
-      } else if (u.includes('B.SC') || u.includes('BSC') || u.includes('B.COM') || u.includes('B.A') || u.includes('MAJOR')) {
+      } else if (u.includes('B.SC') || u.includes('BSC') || u.includes('B.COM') || u.includes('B.A') || u.includes('MAJOR') || u.includes('BOTANY')) {
         currentPaper.streamDetails = (currentPaper.streamDetails ? currentPaper.streamDetails + ' ' : '') + l;
       } else {
         // Fallback for unlabeled lines
@@ -1523,20 +1653,15 @@ function extractExamStructure(lines) {
     }
   }
 
-  // Assign questions to current paper
-  for (let i = 0; i < 8; i++) {
-    if (secAQuestions[i]) {
-      currentPaper.sectionA.questions[i] = secAQuestions[i];
-    }
+  // Assign Section A questions
+  const cleanSecA = secAQuestions.filter(q => q && q.trim());
+  if (cleanSecA.length > 0) {
+    currentPaper.sectionA.questions = secAQuestions;
   }
 
-  secBQuestions.forEach(newQ => {
-    const existing = currentPaper.sectionB.questions.find(q => q.num === newQ.num);
-    if (existing) {
-      if (newQ.a) existing.a = newQ.a;
-      if (newQ.choice) existing.choice = newQ.choice;
-      if (newQ.b) existing.b = newQ.b;
-    }
-  });
+  // Assign Section B questions (ALL questions, whether 5 or 6 or more)
+  if (secBQuestions.length > 0) {
+    currentPaper.sectionB.questions = secBQuestions;
+  }
 }
 

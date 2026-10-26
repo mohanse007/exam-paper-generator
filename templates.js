@@ -238,5 +238,53 @@ const TEMPLATES = {
         { num: 13, page: 2, a: "", choice: "Or", b: "" }
       ]
     }
+  },
+
+  biology: {
+    paperCode: "[MD S108]",
+    collegeName: "ST. ANN'S COLLEGE FOR WOMEN, (AUTONOMOUS)",
+    collegeAddress: "Malkapuram, Visakhapatnam-530011",
+    examDetails: "Honors - Degree Examinations - I Semester, Supplementary (Admitted Batch : 2024-25)",
+    subjectTitle: "MULTIDISCIPLINERY - PRINCIPLES OF BIOLOGICAL SCIENCES",
+    streamDetails: "",
+    timeStr: "Time:2hrs",
+    maxMarksStr: "Max Marks:50",
+    
+    sectionA: {
+      title: "SECTION-A",
+      instruction: "Answer any FIVE of the Following :",
+      marks: "(5×4=20)",
+      questions: [
+        "Classification of plant kingdom.",
+        "Structure of plant vegetative organs.",
+        "Photosynthesis.",
+        "Fertilization",
+        "Colour blindness",
+        "Aids.",
+        "Transgenic animals.",
+        "Lysosomes."
+      ]
+    },
+
+    sectionB: {
+      title: "SECTION-B",
+      instruction: "Answer any THREE of the Following :",
+      marks: "(3×10=30)",
+      questions: [
+        { num: 9, a: "Explain in detail the The two kingdom and five kingdom classification.", choice: "Or", b: "" },
+        { num: 10, a: "Give a detailed account on classification of Animal Kingdom.", choice: "Or", b: "" },
+        { num: 11, a: "Describe the Mechanism of Nitrogen Fixation.", choice: "Or", b: "" },
+        { num: 12, a: "Write about the gametogenesis in detail.", choice: "Or", b: "" },
+        { num: 13, a: "Describe briefly any three plant dislased, Causes, prevention & treatment.", choice: "Or", b: "" },
+        { num: 14, a: "Give an account on Tools and process of recombinant DNA Technology.", choice: "Or", b: "" }
+      ]
+    }
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.TEMPLATES = TEMPLATES;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = TEMPLATES;
+}
