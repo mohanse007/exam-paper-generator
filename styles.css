@@ -1156,3 +1156,23 @@ body {
   border-color: #0284c7;
   background: #f0f9ff;
 }
+
+/* Inline formula & equation images (MathType, OMML, Word equations, chemistry structures) */
+.inline-formula-img {
+  display: inline-block !important;
+  vertical-align: middle !important;
+  max-height: 26px !important;
+  width: auto !important;
+  max-width: 95% !important;
+  margin: 1px 3px !important;
+  object-fit: contain !important;
+  background: transparent !important;
+}
+
+/* Standalone formula image if it's the only element in a line or paragraph */
+.q-text p > .inline-formula-img:only-child,
+.q-text > .inline-formula-img:only-child {
+  display: block !important;
+  margin: 4px auto !important;
+  max-height: 70px !important;
+}

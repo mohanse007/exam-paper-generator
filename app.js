@@ -702,11 +702,22 @@ function formatQuestionContent(str) {
   if (!str) return '';
   str = convertUnicodeSubSup(str);
 
-  // If there's a table, protect table blocks while escaping and formatting surrounding text
+  // 1. Protect table blocks while escaping and formatting surrounding text
   const tables = [];
   let tokenized = str.replace(/<table[\s\S]*?<\/table>/gi, (tbl) => {
     tables.push(tbl);
     return `___TABLE_PLACEHOLDER_${tables.length - 1}___`;
+  });
+
+  // 2. Protect <img> tags (including Word equations / MathType base64 data URIs)
+  const images = [];
+  tokenized = tokenized.replace(/<img\b[^>]*>/gi, (img) => {
+    let cleanImg = img;
+    if (!cleanImg.includes('inline-formula-img')) {
+      cleanImg = cleanImg.replace(/<img\b/i, '<img class="inline-formula-img"');
+    }
+    images.push(cleanImg);
+    return `___IMG_PLACEHOLDER_${images.length - 1}___`;
   });
 
   let safe = escapeHtml(tokenized)
@@ -725,6 +736,7 @@ function formatQuestionContent(str) {
     .replace(/&lt;br\s*\/?&gt;/gi, '<br/>')
     .replace(/\r?\n/g, '<br/>');
 
+  safe = safe.replace(/___IMG_PLACEHOLDER_(\d+)___/g, (_, idx) => images[parseInt(idx, 10)]);
   return safe.replace(/___TABLE_PLACEHOLDER_(\d+)___/g, (_, idx) => tables[parseInt(idx, 10)]);
 }
 
@@ -1788,21 +1800,48 @@ function parseImportedHtmlOrText(content, isHtml) {
 
   if (isHtml) {
     let html = convertUnicodeSubSup(content);
+
+    // 1. Convert Word ordered lists (<ol><li>...</li></ol>) to explicit numbered text lines
+    // This preserves numbering for teachers who used Word's auto-numbering button
+    html = html.replace(/<ol\b([^>]*)>([\s\S]*?)<\/ol>/gi, (match, attrs, inner) => {
+      let startMatch = attrs.match(/start=["']?(\d+)["']?/i);
+      let idx = startMatch ? parseInt(startMatch[1], 10) : 1;
+      return inner.replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (_, item) => {
+        return `\n${idx++}. ${item.trim()}\n`;
+      });
+    });
+
+    // 2. Convert Word unordered lists (<ul><li>...</li></ul>) to bulleted lines
+    html = html.replace(/<ul\b[^>]*>([\s\S]*?)<\/ul>/gi, (match, inner) => {
+      return inner.replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (_, item) => {
+        return `\n• ${item.trim()}\n`;
+      });
+    });
+
+    // 3. Protect <table> blocks
     const tables = [];
     let processed = html.replace(/<table[\s\S]*?<\/table>/gi, (match) => {
       let tbl = match.replace(/<table[^>]*>/i, '<table class="paper-table bordered">');
       tables.push(tbl);
       return '\n__TABLE_TOKEN_' + (tables.length - 1) + '__\n';
     });
+
+    // 4. Convert paragraph/break tags into newlines while PRESERVING <img> tags intact
     processed = processed.replace(/<br\s*\/?>/gi, '\n');
     processed = processed.replace(/<\/(p|div|h[1-6]|li)>/gi, '\n');
     processed = processed.replace(/<(p|div|h[1-6]|li)[^>]*>/gi, '');
+
+    // 5. Split single-line choice questions (e.g. "9. a) State Dirichlet's test (OR) b) Prove that...")
+    processed = processed.replace(/([^\n]+?)\s*(\((?:OR|లేదా)\)|\bOR\b|\bలేదా\b)\s*(\(?[bB]\)?[\.\)]\s*[^\n]+)/gi, '$1\n$2\n$3');
+
     let rawLines = processed.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
     docLines = rawLines.map(line => {
       return line.replace(/__TABLE_TOKEN_(\d+)__/g, (_, idx) => tables[parseInt(idx, 10)]);
     });
   } else {
-    docLines = content.split(/\r?\n/).map(l => convertUnicodeSubSup(l.trim())).filter(l => l.length > 0);
+    let plainContent = convertUnicodeSubSup(content);
+    plainContent = plainContent.replace(/([^\n]+?)\s*(\((?:OR|లేదా)\)|\bOR\b|\bలేదా\b)\s*(\(?[bB]\)?[\.\)]\s*[^\n]+)/gi, '$1\n$2\n$3');
+    docLines = plainContent.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
   }
 
   // Smart Section & Question Extractor
@@ -1860,6 +1899,9 @@ function extractExamStructure(lines) {
       if (!prevPt || 
           prevPt.includes('SEMESTER') || 
           prevPt.includes('EXAMINATION') || 
+          prevPt.includes('QUESTION PAPER') || 
+          prevPt.includes('BACHELOR') || 
+          prevPt.includes('SCIENCE') || 
           prevPt.includes('SKILL COURSE') || 
           prevPt.includes('COLLEGE') || 
           prevPt.startsWith('[') || 
@@ -1881,11 +1923,19 @@ function extractExamStructure(lines) {
   let currentSecBPart = 'a'; // 'a' or 'b'
   let headerLines = [];
 
-  // Helper to clean up question text and format subpoints
+  // Strips leading question number/letter prefix while strictly preserving all HTML (e.g. <img ...> equations)
+  function stripQuestionPrefix(originalLine) {
+    if (!originalLine) return '';
+    return originalLine
+      .replace(/^(?:<[^>]*>|\s)*(?:(?:\d{1,2}\s*[\.\)\-]?\s*(?:\(?[aAbB]\)?[\.\)])?)|(?:\(?[aAbB]\)?[\.\)])|(?:[•\-\*]))(?:<[^>]*>|\s)*/i, '')
+      .trim();
+  }
+
+  // Helper to clean up question text, format subpoints, and preserve images/tables
   function cleanQuestionText(text) {
     if (!text) return '';
     text = decodeHtmlEntities(text);
-    // Replace Mammoth/HTML tags with clean equivalents
+    // Replace Mammoth/HTML wrappers with clean equivalents
     text = text
       .replace(/<\/?(?:p|div|span)[^>]*>/gi, '')
       .replace(/<strong[^>]*>/gi, '<b>')
@@ -1896,8 +1946,6 @@ function extractExamStructure(lines) {
       .replace(/<\/li>/gi, '')
       .replace(/<\/?(?:ul|ol)[^>]*>/gi, '');
 
-    // Strip redundant leading numbering, HTML tag wrappers, and (a) / a) / a. or (b) / b) / b. prefixes
-    text = text.replace(/^(?:<[^>]*>|\s)*(?:\(?[aAbB]\)?[\.\)])(?:<[^>]*>|\s)*/i, '').trim();
     // Stack roman numeral sub-points like ii. or ii) onto new lines
     text = text.replace(/([^\n])\s+(ii|iii|iv|v|vi)[\.\)]\s+/gi, '$1\n$2) ');
     text = text.replace(/([^\n])\s+\((ii|iii|iv|v|vi)\)\s+/gi, '$1\n($2) ');
@@ -1905,6 +1953,8 @@ function extractExamStructure(lines) {
   }
 
   lines.forEach(line => {
+    if (currentSection === 'done') return;
+
     const plainText = decodeHtmlEntities(line.replace(/<[^>]*>/g, '').trim());
     const upper = plainText.toUpperCase();
 
@@ -1918,6 +1968,18 @@ function extractExamStructure(lines) {
     if (/\b(?:SECTION|PART)\s*[\-–—]?\s*B\b/i.test(plainText)) {
       currentSection = 'secB';
       return;
+    }
+
+    // Check if document reached Marking Scheme / repeated header while in questions
+    if (currentSection !== 'header') {
+      if (upper.includes('MARKING SCHEME') || 
+          upper.includes('SCHEME OF VALUATION') || 
+          upper.includes('ANSWER KEY') || 
+          upper.includes('KEY SHEET') || 
+          (upper.includes('SEMESTER') && (upper.includes('EXAMINATION') || upper.includes('EXAMINATIONS')))) {
+        currentSection = 'done';
+        return;
+      }
     }
 
     // Header extraction
@@ -1996,25 +2058,28 @@ function extractExamStructure(lines) {
       if (qMatch) {
         const num = parseInt(qMatch[1], 10);
         if (num <= 8) {
-          const formattedRest = line.replace(/^(?:<[^>]*>|\s)*\d{1,2}[\.\)\-](?:<[^>]*>|\s)*/i, '').trim();
-          secAQuestions[num - 1] = cleanQuestionText(formattedRest);
+          secAQuestions[num - 1] = cleanQuestionText(stripQuestionPrefix(line));
           return;
         } else if (num >= 9) {
           // Implicit Section B started
           currentSection = 'secB';
         }
-      } else if (!secAQuestions[0] && plainText.length > 3 && !upper.startsWith('SECTION')) {
-        // Fallback for unnumbered Question 1 (e.g. "What is Information Security?")
-        secAQuestions[0] = cleanQuestionText(line);
-        return;
-      } else if (secAQuestions.length > 0) {
-        // Append continuation line / table to previous question
-        secAQuestions[secAQuestions.length - 1] += '\n' + cleanQuestionText(line);
-        return;
+      } else {
+        // Line does NOT start with explicit number (e.g. unnumbered paragraph or bullet)
+        const isSubBullet = /^(\(?[a-dA-D]\)?[\.\)]|\(?[ivxIVX]+\)?[\.\)]|[•\-\*])/.test(plainText);
+        // If not a sub-bullet and we have fewer than 8 questions in Section A, treat as an individual question!
+        if (!isSubBullet && secAQuestions.filter(Boolean).length < 8 && plainText.length > 3 && !upper.startsWith('SECTION')) {
+          secAQuestions.push(cleanQuestionText(line));
+          return;
+        } else if (secAQuestions.length > 0) {
+          // Append continuation line / table to previous question
+          secAQuestions[secAQuestions.length - 1] += '\n' + cleanQuestionText(line);
+          return;
+        }
       }
     }
 
-    // Section B Question Extraction (9 to 14+ with optional Or choice)
+    // Section B Question Extraction (9 to 13 with optional Or choice)
     if (currentSection === 'secB') {
       // Check for instruction line
       if (upper.includes('ANSWER ALL') || upper.includes('ANSWER ANY') || (upper.includes('ANSWER') && upper.includes('FOLLOWING')) || upper.includes('FOLLOWING QUESTIONS')) {
@@ -2031,7 +2096,7 @@ function extractExamStructure(lines) {
         return;
       }
 
-      const isChoiceWord = upper === 'OR' || upper === '(OR)' || plainText.includes('(లేదా)') || upper === 'లేదా';
+      const isChoiceWord = upper === 'OR' || upper === '(OR)' || plainText.includes('(లేదా)') || upper === 'లేదా' || upper === 'OR:' || upper === '(OR):';
       if (isChoiceWord && currentSecBQuestion) {
         currentSecBQuestion.choice = upper.includes('లేదా') ? 'లేదా' : 'Or';
         currentSecBPart = 'b';
@@ -2043,14 +2108,14 @@ function extractExamStructure(lines) {
       const bWithoutNumMatch = !bWithNumMatch ? plainText.match(/^(?:\(?[bB]\)?[\.\)])\s*(.*)/) : null;
 
       if (bWithNumMatch || bWithoutNumMatch) {
-        const bText = bWithNumMatch ? bWithNumMatch[2] : bWithoutNumMatch[1];
         const qNum = bWithNumMatch ? parseInt(bWithNumMatch[1], 10) : (currentSecBQuestion ? currentSecBQuestion.num : null);
 
         let targetQ = secBQuestions.find(q => q.num === qNum);
         if (!targetQ && currentSecBQuestion) targetQ = currentSecBQuestion;
 
         if (targetQ) {
-          targetQ.b = cleanQuestionText(bText);
+          // Extract b text while preserving all inline HTML (formulas, equations, <img>)
+          targetQ.b = cleanQuestionText(stripQuestionPrefix(line));
           targetQ.choice = targetQ.choice || 'Or';
           currentSecBQuestion = targetQ;
           currentSecBPart = 'b';
@@ -2062,10 +2127,10 @@ function extractExamStructure(lines) {
       const qStartMatch = plainText.match(/^(\d{1,2})\s*[\.\)\-]?\s*(?:\(?[aA]\)?[\.\)])?\s*(.*)/);
       if (qStartMatch && parseInt(qStartMatch[1], 10) >= 9) {
         const qNum = parseInt(qStartMatch[1], 10);
-        const qText = qStartMatch[2];
+        // Extract a text while preserving all inline HTML (formulas, equations, <img>)
         currentSecBQuestion = {
           num: qNum,
-          a: cleanQuestionText(qText),
+          a: cleanQuestionText(stripQuestionPrefix(line)),
           choice: 'Or',
           b: ''
         };
@@ -2077,7 +2142,7 @@ function extractExamStructure(lines) {
       // Standalone "(a)" on line following question number
       const aOnlyMatch = plainText.match(/^(?:\(?[aA]\)?[\.\)])\s*(.*)/);
       if (aOnlyMatch && currentSecBQuestion && !currentSecBQuestion.a) {
-        currentSecBQuestion.a = cleanQuestionText(aOnlyMatch[1]);
+        currentSecBQuestion.a = cleanQuestionText(stripQuestionPrefix(line));
         currentSecBPart = 'a';
         return;
       }
