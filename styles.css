@@ -858,7 +858,9 @@ body {
   .app-header,
   .sidebar,
   .preview-toolbar,
-  .cut-indicator {
+  .dtp-toolbar,
+  .cut-indicator,
+  .modal-backdrop {
     display: none !important;
   }
 
@@ -876,6 +878,7 @@ body {
 
   .preview-scroll {
     padding: 0 !important;
+    margin: 0 !important;
     gap: 0 !important;
     display: block !important;
     overflow: visible !important;
@@ -893,14 +896,44 @@ body {
   .exam-page {
     box-shadow: none !important;
     margin: 0 !important;
-    page-break-after: always !important;
-    break-after: page !important;
+    margin-bottom: 0 !important;
     transform: none !important;
+    overflow: hidden !important;
   }
 
-  .exam-page:last-child {
-    page-break-after: auto !important;
-    break-after: auto !important;
+  .exam-page.mode-2up {
+    width: 297mm !important;
+    height: 210mm !important;
+    max-height: 210mm !important;
+  }
+
+  .exam-page.mode-full-a4 {
+    width: 210mm !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+  }
+
+  /* Single-page print: never break after Page 1, completely hide Page 2 */
+  body.single-page-print .exam-page,
+  body.single-page-print #preview-page-1 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  body.single-page-print #preview-page-2,
+  .exam-page[style*="display: none"] {
+    display: none !important;
+  }
+
+  /* Two-page print handling */
+  body:not(.single-page-print) #preview-page-1 {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  body:not(.single-page-print) #preview-page-2 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   .mode-2up .paper-half.left-half {

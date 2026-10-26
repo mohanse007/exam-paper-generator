@@ -1207,6 +1207,13 @@ window.exportPageAsJpg = async function(pageId, filename) {
 window.printExamPaper = function() {
   document.body.className = currentLayoutMode === '2up' ? 'print-landscape' : 'print-portrait';
 
+  const { totalPages } = calculateDynamicPagination();
+  if (totalPages === 1) {
+    document.body.classList.add('single-page-print');
+  } else {
+    document.body.classList.remove('single-page-print');
+  }
+
   let printStyle = document.getElementById('dynamic-print-style');
   if (!printStyle) {
     printStyle = document.createElement('style');
